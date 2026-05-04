@@ -62,7 +62,7 @@ export default function Chatbot() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div className="status-dot"></div>
-              <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Research Assistant</span>
+              <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Academic Assistant</span>
             </div>
             <button onClick={() => setIsOpen(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
           </div>
@@ -116,13 +116,18 @@ export default function Chatbot() {
           onClick={() => setIsOpen(true)}
           className="chat-toggle reveal-4"
           style={{ 
-            width: '60px', height: '60px', borderRadius: '50%', 
-            background: 'var(--accent-primary)', border: 'none', 
-            boxShadow: '0 10px 25px rgba(0, 255, 163, 0.3)', cursor: 'pointer',
-            fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center'
+            width: '64px', height: '64px', borderRadius: '50%', 
+            background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', 
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden', padding: '0'
           }}
         >
-          💬
+          <img 
+            src="/logo.png" 
+            alt="AI" 
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+          />
         </button>
       )}
 
@@ -141,8 +146,10 @@ export default function Chatbot() {
           100% { opacity: 0.5; }
         }
         .chat-toggle:hover {
-          transform: scale(1.1);
-          transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          transform: scale(1.1) rotate(5deg);
+          border-color: var(--accent-primary);
+          box-shadow: 0 0 20px var(--accent-glow);
+          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
       `}</style>
     </div>

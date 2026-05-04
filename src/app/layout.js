@@ -8,6 +8,9 @@ const outfit = Outfit({ subsets: ["latin"] });
 export const metadata = {
   title: "Academic Suite | Research Humanizer & Generator",
   description: "Professional-grade research paper tools",
+  icons: {
+    icon: '/logo.png',
+  },
 };
 
 export default function RootLayout({ children }) {
