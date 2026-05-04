@@ -1,170 +1,156 @@
 'use client';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 
 export default function GeneratePage() {
   const [topic, setTopic] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isQueued, setIsQueued] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState('');
   const [paper, setPaper] = useState(null);
-  const [error, setError] = useState('');
+  const paperRef = useRef(null);
 
-  const handleGenerate = async (retryCount = 0) => {
-    if (!topic.trim()) return;
+  const generatePaper = async () => {
+    if (!topic) return;
+    setLoading(true);
+    setPaper(null);
+    setStatus('Researching Topic...');
     
-    // Prevent excessive retries
-    if (retryCount > 3) {
-      setIsLoading(false);
-      setIsQueued(false);
-      setError("System is currently under extreme load. Please try again in a few minutes.");
-      return;
-    }
-
-    setIsLoading(true);
-    setError('');
-    if (retryCount === 0) setPaper(null);
-
     try {
+      // Pass 1 & 2 combined in the optimized API
       const res = await fetch('/api/generate-paper', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic }),
+        body: JSON.stringify({ topic })
       });
       
+      setStatus('Finalizing IEEE Layout...');
       const data = await res.json();
-
-      // HANDLE SOFT-BUSY (THE KEY UPGRADE)
-      if (data.status === 'busy') {
-        setIsQueued(true);
-        // Wait and retry automatically
-        setTimeout(() => handleGenerate(retryCount + 1), data.retryAfter || 3000);
-        return;
-      }
-
-      if (data.status === 'error' || !res.ok) throw new Error(data.message || 'Generation failed');
       
-      setPaper(data);
-      setIsQueued(false);
+      if (data.status === 'success') {
+        setPaper(data.paper);
+        setStatus('Ready for Export');
+      } else {
+        alert(data.message || 'System busy. Please try again.');
+      }
     } catch (err) {
-      setError(err.message);
+      alert('Generation failed. Check your connection.');
     } finally {
-      if (!isQueued) setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="generate-container">
-      <header className="reveal-1">
-        <h1 className="hero-title">Research <span className="gradient-text">Generator</span></h1>
-        <p className="hero-subtitle">Enter a research topic to generate a comprehensive, IEEE-formatted paper with academic citations.</p>
-      </header>
+  const downloadPDF = async () => {
+    if (!paperRef.current) return;
+    setStatus('Building PDF...');
+    
+    const canvas = await html2canvas(paperRef.current, {
+      scale: 2, // Higher resolution
+      useCORS: true
+    });
+    
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const imgProps = pdf.getImageProperties(imgData);
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+    
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`${topic.replace(/\s+/g, '_')}_IEEE_Paper.pdf`);
+    setStatus('Export Complete');
+  };
 
-      <div className="glass-panel reveal-2" style={{ marginBottom: '3rem' }}>
-        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
-          <div style={{ flex: 1 }}>
-            <input 
-              type="text" 
-              placeholder="e.g. Impact of Quantum Computing on Modern Cryptography" 
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              className="premium-input"
-              style={{ 
-                width: '100%', padding: '1.25rem 1.5rem', borderRadius: '18px', 
-                background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', 
-                color: 'white', fontSize: '1.1rem', outline: 'none'
-              }}
-            />
-          </div>
+  return (
+    <div className="main-viewport">
+      <div className="background-mesh"></div>
+      
+      <div className="glass-panel" style={{ maxWidth: '900px', margin: '0 auto' }}>
+        <h1 className="hero-title">Research <span className="gradient-text">Lab</span></h1>
+        <p className="text-secondary" style={{ marginBottom: '2rem' }}>
+          Generate high-fidelity, IEEE-standard research papers with automated humanization.
+        </p>
+
+        <div className="input-group" style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+          <input 
+            type="text" 
+            placeholder="e.g., Quantum Computing in Modern Cryptography" 
+            className="glass-input"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            style={{ 
+              flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)',
+              padding: '1.25rem', borderRadius: '14px', color: '#fff', fontSize: '1rem'
+            }}
+          />
           <button 
-            onClick={() => handleGenerate(0)}
-            disabled={isLoading || !topic.trim()}
+            onClick={generatePaper} 
+            disabled={loading}
             className="btn-primary"
-            style={{ padding: '1.1rem 2.5rem', minWidth: '200px' }}
+            style={{ opacity: loading ? 0.6 : 1 }}
           >
-            {isQueued ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span className="pulse-dot"></span>
-                In Queue...
-              </div>
-            ) : isLoading ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span className="spinner"></span>
-                Generating...
-              </div>
-            ) : 'Generate Paper'}
+            {loading ? 'Generating...' : 'Start Research'}
           </button>
         </div>
+
+        {status && <div style={{ color: 'var(--accent-primary)', marginBottom: '1rem', fontWeight: 'bold' }}>● {status}</div>}
+
+        {paper && (
+          <div className="fade-in">
+            <button 
+              onClick={downloadPDF} 
+              className="btn-secondary"
+              style={{ 
+                marginBottom: '1rem', background: 'var(--glass-bg)', border: '1px solid var(--accent-primary)',
+                color: 'var(--accent-primary)', padding: '0.75rem 1.5rem', borderRadius: '10px', cursor: 'pointer'
+              }}
+            >
+              📥 Download IEEE PDF
+            </button>
+            
+            {/* HIDDEN IEEE PREVIEW FOR PDF GENERATION */}
+            <div style={{ position: 'absolute', left: '-9999px' }}>
+              <div ref={paperRef} className="ieee-document">
+                <h1 className="ieee-title">{topic.toUpperCase()}</h1>
+                <p className="ieee-authors">Academic Suite Research Intelligence</p>
+                <div className="ieee-columns">
+                  {paper.split('\n').map((line, i) => {
+                    const isHeader = /^(ABSTRACT|INTRODUCTION|LITERATURE|METHODOLOGY|RESULTS|DISCUSSION|CONCLUSION|REFERENCES)/i.test(line);
+                    return isHeader ? (
+                      <span key={i} className="ieee-section-head">{line}</span>
+                    ) : (
+                      <p key={i} className="ieee-text">{line}</p>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* SCREEN PREVIEW */}
+            <div className="preview-container" style={{ 
+              background: '#fff', color: '#000', padding: '3rem', borderRadius: '12px',
+              height: '500px', overflowY: 'scroll', fontFamily: '"Times New Roman", serif'
+            }}>
+              <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{paper}</pre>
+            </div>
+          </div>
+        )}
       </div>
 
-      {isQueued && (
-        <div className="glass-panel reveal-3" style={{ marginBottom: '2rem', background: 'rgba(0, 255, 163, 0.05)', borderColor: 'var(--accent-primary)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <div className="spinner" style={{ borderTopColor: 'var(--accent-primary)' }}></div>
-            <div>
-              <div style={{ fontWeight: 700 }}>High Demand Detected</div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Queuing your request for priority processing. Do not refresh.</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {error && (
-        <div className="glass-panel reveal-3" style={{ color: '#ff4d4d', borderColor: 'rgba(255,77,77,0.3)', background: 'rgba(255,77,77,0.02)' }}>
-          {error}
-        </div>
-      )}
-
-      {paper && paper.status === 'success' && (
-        <div className="paper-preview">
-          <div className="glass-panel reveal-3" style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: '0.5rem' }}>{paper.title}</h2>
-              <div style={{ display: 'flex', gap: '1.5rem', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-                <span>IEEE Format</span>
-                <span>•</span>
-                <span style={{ color: 'var(--accent-primary)' }}>Integrity Verified</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid-features reveal-4">
-            <div className="glass-panel">
-              <h3 style={{ fontSize: '1.2rem', marginBottom: '1.5rem' }}>🛡️ Integrity Report</h3>
-              <div style={{ display: 'grid', gap: '1.25rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.75rem', borderBottom: '1px solid var(--glass-border)' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Citations</span>
-                  <span style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>Verified</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Plagiarism</span>
-                  <span style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>2%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <style jsx>{`
-        .spinner {
-          width: 20px;
-          height: 20px;
-          border: 3px solid rgba(0,0,0,0.1);
-          border-top-color: #000;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
+        .ieee-document {
+          width: 210mm;
+          padding: 20mm;
+          background: #fff;
+          color: #000;
+          font-family: "Times New Roman", Times, serif;
+          font-size: 10pt;
+          line-height: 1.2;
         }
-        .pulse-dot {
-          width: 8px;
-          height: 8px;
-          background: #000;
-          border-radius: 50%;
-          animation: pulse 1s ease-in-out infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes pulse {
-          0%, 100% { transform: scale(0.8); opacity: 0.5; }
-          50% { transform: scale(1.2); opacity: 1; }
-        }
+        .ieee-title { font-size: 24pt; text-align: center; margin-bottom: 1em; font-weight: normal; }
+        .ieee-authors { text-align: center; margin-bottom: 2em; font-size: 11pt; }
+        .ieee-columns { column-count: 2; column-gap: 1cm; text-align: justify; }
+        .fade-in { animation: fadeIn 0.8s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
     </div>
   );

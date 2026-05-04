@@ -159,8 +159,54 @@ body {
   box-shadow: 0 8px 25px var(--accent-glow);
 }
 
-/* Responsive Overrides */
-@media (max-width: 1024px) {
-  .sidebar { width: 0 !important; display: none !important; }
-  .main-viewport { margin-left: 0 !important; width: 100% !important; padding: 2rem !important; }
+/* IEEE ACADEMIC EXPORT STYLES */
+.ieee-document {
+  width: 210mm !important;
+  background: #fff !important;
+  color: #000 !important;
+  font-family: "Times New Roman", Times, serif !important;
+  padding: 20mm !important;
+  margin: 0 !important;
+}
+
+.ieee-title {
+  font-size: 24pt !important;
+  text-align: center !important;
+  margin-bottom: 0.5em !important;
+  font-weight: normal !important;
+  line-height: 1.1 !important;
+}
+
+.ieee-authors {
+  text-align: center !important;
+  margin-bottom: 2em !important;
+  font-size: 11pt !important;
+}
+
+.ieee-columns {
+  column-count: 2 !important;
+  column-gap: 1cm !important;
+  text-align: justify !important;
+  font-size: 10pt !important;
+  line-height: 1.2 !important;
+}
+
+.ieee-section-head {
+  font-weight: bold !important;
+  text-transform: uppercase !important;
+  margin-top: 1.5em !important;
+  margin-bottom: 0.5em !important;
+  display: block !important;
+}
+
+.ieee-text {
+  margin-bottom: 1em !important;
+  display: block !important;
+}
+
+.glass-input:focus {
+  outline: none;
+  border-color: var(--accent-primary) !important;
+  background: rgba(255,255,255,0.05) !important;
+  box-shadow: 0 0 15px var(--accent-glow);
 }
