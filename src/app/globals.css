@@ -14,7 +14,7 @@
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
   
-  --sidebar-width: 290px;
+  --sidebar-width: 280px;
   --radius-xl: 32px;
   --radius-lg: 20px;
 }
@@ -55,21 +55,71 @@ body {
   z-index: -1;
 }
 
-/* Premium Layout */
+/* NUCLEAR SIDEBAR FIX */
 .app-container {
-  display: flex;
-  min-height: 100vh;
+  display: flex !important;
+  width: 100% !important;
+  min-height: 100vh !important;
 }
 
+.sidebar {
+  width: var(--sidebar-width) !important;
+  min-width: var(--sidebar-width) !important;
+  height: 100vh !important;
+  position: fixed !important;
+  left: 0 !important;
+  top: 0 !important;
+  background: #000 !important; /* Force deep black as requested */
+  border-right: 1px solid var(--glass-border) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  z-index: 9999 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.sidebar-logo {
+  padding: 3rem 2rem !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 1rem !important;
+}
+
+.sidebar-nav {
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 1rem !important;
+  gap: 0.75rem !important;
+  flex: 1 !important;
+}
+
+.nav-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 1rem !important;
+  padding: 1.25rem 1.5rem !important;
+  border-radius: 16px !important;
+  color: var(--text-secondary) !important;
+  text-decoration: none !important;
+  transition: all 0.3s ease !important;
+}
+
+.nav-item.active {
+  background: rgba(0, 255, 163, 0.08) !important;
+  color: var(--accent-primary) !important;
+  border: 1px solid rgba(0, 255, 163, 0.2) !important;
+}
+
+/* MAIN VIEWPORT FIX */
 .main-viewport {
-  flex: 1;
-  padding: 5rem 6rem;
-  max-width: 1500px;
-  margin: 0 auto;
-  position: relative;
+  margin-left: var(--sidebar-width) !important;
+  flex: 1 !important;
+  padding: 6rem !important;
+  max-width: none !important;
+  width: calc(100% - var(--sidebar-width)) !important;
 }
 
-/* Hyper-Premium Glass Panel */
+/* GLASS PANELS */
 .glass-panel {
   background: var(--glass-bg);
   backdrop-filter: blur(28px) saturate(160%);
@@ -79,26 +129,9 @@ body {
   padding: 3rem;
   position: relative;
   transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
-  box-shadow: 
-    0 20px 50px -12px rgba(0, 0, 0, 0.6),
-    inset 0 1px 1px var(--glass-highlight);
+  box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.6);
 }
 
-.glass-panel::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, var(--glass-highlight), transparent 40%, transparent 60%, var(--glass-border));
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-/* Hero Typography */
 .hero-title {
   font-size: 5rem;
   font-weight: 800;
@@ -107,82 +140,13 @@ body {
   line-height: 0.95;
 }
 
-.hero-subtitle {
-  font-size: 1.35rem;
-  color: var(--text-secondary);
-  max-width: 720px;
-  margin-bottom: 5rem;
-  font-weight: 400;
-  letter-spacing: -0.01em;
-}
-
 .gradient-text {
   background: linear-gradient(to right, var(--accent-primary), #00d4ff, var(--accent-secondary));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  background-size: 200% auto;
-  animation: shine 8s linear infinite;
 }
 
-@keyframes shine {
-  to { background-position: 200% center; }
-}
-
-/* Feature Grid */
-.grid-features {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  gap: 2.5rem;
-}
-
-.feature-card {
-  text-decoration: none;
-  color: inherit;
-  display: block;
-}
-
-.feature-card:hover .glass-panel {
-  transform: translateY(-12px) scale(1.01);
-  background: rgba(255, 255, 255, 0.05);
-  border-color: var(--accent-primary);
-  box-shadow: 
-    0 30px 60px -20px rgba(0, 0, 0, 0.8),
-    0 0 20px -5px var(--accent-glow);
-}
-
-.feature-card .icon-box {
-  width: 64px;
-  height: 64px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--glass-border);
-  border-radius: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  margin-bottom: 2rem;
-  transition: transform 0.4s ease;
-}
-
-.feature-card:hover .icon-box {
-  transform: rotate(-5deg) scale(1.1);
-  background: var(--accent-glow);
-  border-color: var(--accent-primary);
-}
-
-/* Animations */
-.reveal-1 { animation: reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both; }
-.reveal-2 { animation: reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both; }
-.reveal-3 { animation: reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both; }
-.reveal-4 { animation: reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both; }
-
-@keyframes reveal {
-  from { opacity: 0; transform: translateY(30px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* UI Elements */
 .btn-primary {
   background: var(--accent-primary);
   color: #000;
@@ -192,139 +156,11 @@ body {
   font-size: 1.1rem;
   border: none;
   cursor: pointer;
-  transition: all 0.3s ease;
   box-shadow: 0 8px 25px var(--accent-glow);
 }
 
-.btn-primary:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 35px var(--accent-glow);
-  filter: brightness(1.1);
-}
-
-/* Responsive */
-@media (max-width: 1200px) {
-  .main-viewport { padding: 4rem 3rem; }
-  .hero-title { font-size: 4rem; }
-}
-
-@media (max-width: 768px) {
-  .hero-title { font-size: 3rem; }
-  .main-viewport { padding: 3rem 1.5rem; }
-  .grid-features { grid-template-columns: 1fr; }
-}
-
-/* Premium Sidebar Architecture */
-.app-container {
-  display: flex;
-  min-height: 100vh;
-  width: 100%;
-}
-
-.sidebar {
-  width: var(--sidebar-width);
-  height: 100vh;
-  position: fixed;
-  left: 0;
-  top: 0;
-  background: rgba(8, 9, 12, 0.6);
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
-  border-right: 1px solid var(--glass-border);
-  display: flex !important;
-  flex-direction: column !important;
-  z-index: 1000;
-  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.sidebar-logo {
-  padding: 3.5rem 2rem;
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-  margin-bottom: 2rem;
-}
-
-.logo-icon {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-  filter: drop-shadow(0 0 12px var(--accent-glow));
-}
-
-.logo-text {
-  font-size: 1.6rem;
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-  color: white;
-}
-
-.sidebar-nav {
-  flex: 1;
-  padding: 0 1.25rem;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 1rem;
-}
-
-.nav-item {
-  display: flex !important;
-  align-items: center !important;
-  gap: 1.25rem;
-  padding: 1.25rem 1.75rem;
-  text-decoration: none;
-  border-radius: 20px;
-  border: 1px solid transparent;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  color: var(--text-secondary);
-}
-
-.nav-item:hover {
-  background: rgba(255, 255, 255, 0.04);
-  transform: translateX(8px);
-  color: white;
-}
-
-.nav-item.active {
-  background: rgba(0, 255, 163, 0.08);
-  border-color: rgba(0, 255, 163, 0.2);
-  box-shadow: 0 8px 30px rgba(0, 255, 163, 0.1);
-  color: var(--accent-primary);
-}
-
-.nav-text {
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.nav-icon {
-  font-size: 1.3rem;
-  display: flex;
-  align-items: center;
-}
-
-/* Main Viewport Stabilization */
-.main-viewport {
-  margin-left: var(--sidebar-width);
-  flex: 1;
-  min-height: 100vh;
-  padding: 5rem 6rem;
-  position: relative;
-  width: calc(100% - var(--sidebar-width));
-}
-
 /* Responsive Overrides */
-@media (max-width: 1200px) {
-  :root { --sidebar-width: 100px; }
-  .logo-text, .nav-text, .sidebar-footer span { display: none; }
-  .sidebar-logo, .sidebar-footer { justify-content: center; padding: 2.5rem 0; }
-  .nav-item { justify-content: center; padding: 1.25rem; }
-  .main-viewport { padding: 4rem 2rem; margin-left: 100px; width: calc(100% - 100px); }
-}
-
-@media (max-width: 768px) {
-  .sidebar { width: 0; padding: 0; opacity: 0; border: none; pointer-events: none; }
-  .main-viewport { margin-left: 0; width: 100%; padding: 3rem 1.5rem; }
+@media (max-width: 1024px) {
+  .sidebar { width: 0 !important; display: none !important; }
+  .main-viewport { margin-left: 0 !important; width: 100% !important; padding: 2rem !important; }
 }
