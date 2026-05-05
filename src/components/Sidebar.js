@@ -22,7 +22,7 @@ export default function Sidebar() {
   
   const navItems = [
     { name: 'Dashboard', path: '/', Icon: Icons.Dashboard },
-    { name: 'Research Generator', path: '/generate', Icon: Icons.Generator },
+    { name: 'Research Formatter', path: '/generate', Icon: Icons.Generator },
     { name: 'AI Humanizer', path: '/humanize', Icon: Icons.Humanizer },
     { name: 'History Archive', path: '/history', Icon: Icons.History },
   ];

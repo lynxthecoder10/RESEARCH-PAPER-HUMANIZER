@@ -8,7 +8,7 @@ export default function Home() {
           Academic <span className="gradient-text">Suite</span>
         </h1>
         <p className="hero-subtitle">
-          The all-in-one professional platform for high-fidelity research generation, 
+          The all-in-one professional platform for research formatting, 
           AI humanization, and academic integrity management.
         </p>
       </header>
@@ -17,9 +17,9 @@ export default function Home() {
         <Link href="/generate" className="feature-card reveal-2">
           <div className="glass-panel">
             <div className="icon-box">📝</div>
-            <h3>Paper Generator</h3>
+            <h3>Research Formatter</h3>
             <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-              Generate full IEEE research papers with verified citations and professional formatting.
+              Restructure your research into professional IEEE formats with perfect structural integrity.
             </p>
           </div>
         </Link>
