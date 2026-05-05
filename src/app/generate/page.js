@@ -1,141 +1,219 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 
-// Production Rule: Lazy-load client-only libraries to ensure build safety
-let jsPDF, html2canvas, docx;
-if (typeof window !== "undefined") {
-  import('jspdf').then(mod => jsPDF = mod.jsPDF);
-  import('html2canvas').then(mod => html2canvas = mod.default);
-  import('docx').then(mod => docx = mod);
+// Build-safe lazy imports for client-only libraries
+let jsPDFLib, html2canvasLib, docxLib;
+if (typeof window !== 'undefined') {
+  import('jspdf').then(m => (jsPDFLib = m.jsPDF));
+  import('html2canvas').then(m => (html2canvasLib = m.default));
+  import('docx').then(m => (docxLib = m));
 }
 
 export default function GeneratePage() {
-  const [topic, setTopic] = useState('');
+  const [content, setContent] = useState('');
+  const [format, setFormat] = useState('ieee');
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
-  const [paper, setPaper] = useState(null);
+  const [result, setResult] = useState(null);
+  const [isFallback, setIsFallback] = useState(false);
   const paperRef = useRef(null);
 
+  // Exponential backoff retry for soft-busy protocol
   const fetchWithRetry = async (url, options, attempts = 0) => {
     const MAX_ATTEMPTS = 5;
     try {
-      const response = await fetch(url, options);
-      const data = await response.json();
+      const res = await fetch(url, options);
+      const data = await res.json();
       if (data.status === 'busy' && attempts < MAX_ATTEMPTS) {
-        const delay = (1000 * Math.pow(2, attempts)) + (Math.random() * 500);
-        setStatus(`Queuing... Retrying in ${Math.round(delay/1000)}s`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        const delay = 1000 * Math.pow(2, attempts) + Math.random() * 400;
+        setStatus(`System busy — retrying in ${Math.round(delay / 1000)}s… (${attempts + 1}/${MAX_ATTEMPTS})`);
+        await new Promise(r => setTimeout(r, delay));
         return fetchWithRetry(url, options, attempts + 1);
       }
       return data;
-    } catch (error) {
+    } catch (err) {
       if (attempts < MAX_ATTEMPTS) return fetchWithRetry(url, options, attempts + 1);
-      throw error;
+      throw err;
     }
   };
 
-  const generatePaper = async () => {
-    if (!topic || loading) return;
+  const handleFormat = async () => {
+    if (!content.trim() || loading) return;
     setLoading(true);
-    setPaper(null);
-    setStatus('Initializing AI Chain...');
+    setResult(null);
+    setStatus('Analyzing research content…');
+
     try {
       const data = await fetchWithRetry('/api/generate-paper', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic })
+        body: JSON.stringify({ content, format })
       });
+
       if (data.status === 'success') {
-        setPaper(data.paper);
-        setStatus('Ready');
+        setResult(data.result);
+        setIsFallback(data.fallback);
+        setStatus(data.fallback ? 'Fallback structure applied.' : 'Formatted successfully.');
       } else {
-        setStatus('Peak Load: System returned fallback.');
-        setPaper(data.paper || "FALLBACK: Please retry in 60s.");
+        setStatus(data.message || 'An error occurred. Please retry.');
       }
     } catch (err) {
-      setStatus('Network Error');
+      setStatus('Network error. Please check your connection.');
     } finally {
       setLoading(false);
     }
   };
 
   const downloadPDF = async () => {
-    if (!paperRef.current || !jsPDF || !html2canvas) return;
-    setStatus('Generating PDF...');
-    const canvas = await html2canvas(paperRef.current, { scale: 2 });
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    pdf.addImage(imgData, 'PNG', 0, 0, 210, (canvas.height * 210) / canvas.width);
-    pdf.save(`${topic}_IEEE.pdf`);
-    setStatus('PDF Exported');
+    if (!paperRef.current || !jsPDFLib || !html2canvasLib) return;
+    setStatus('Generating PDF…');
+    const canvas = await html2canvasLib(paperRef.current, { scale: 2 });
+    const img = canvas.toDataURL('image/png');
+    const pdf = new jsPDFLib('p', 'mm', 'a4');
+    pdf.addImage(img, 'PNG', 0, 0, 210, (canvas.height * 210) / canvas.width);
+    pdf.save('formatted_paper.pdf');
+    setStatus('PDF exported.');
   };
 
   const downloadDOCX = async () => {
-    if (!paper || !docx) return;
-    setStatus('Generating DOCX...');
-    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = docx;
-    
-    const doc = new Document({
-      sections: [{
-        properties: {},
-        children: [
-          new Paragraph({ text: topic.toUpperCase(), heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER }),
-          new Paragraph({ text: "Academic Suite Research Intelligence", alignment: AlignmentType.CENTER }),
-          ...paper.split('\n').map(line => new Paragraph({
-            children: [new TextRun({ text: line, size: 20 })],
-            spacing: { after: 200 },
-            alignment: AlignmentType.JUSTIFIED
-          }))
-        ],
-      }],
+    if (!result || !docxLib) return;
+    setStatus('Generating DOCX…');
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = docxLib;
+
+    const paragraphs = result.split('\n').map(line => {
+      const isHeading = /^(ABSTRACT|INTRODUCTION|METHODOLOGY|RESULTS|DISCUSSION|CONCLUSION|REFERENCES)/i.test(line);
+      return new Paragraph({
+        children: [new TextRun({ text: line, size: isHeading ? 24 : 20, bold: isHeading })],
+        heading: isHeading ? HeadingLevel.HEADING_1 : undefined,
+        spacing: { after: 200 },
+        alignment: AlignmentType.JUSTIFIED
+      });
     });
 
+    const doc = new Document({ sections: [{ children: paragraphs }] });
     const blob = await Packer.toBlob(doc);
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${topic}_IEEE.docx`;
-    link.click();
-    setStatus('DOCX Exported');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'formatted_paper.docx';
+    a.click();
+    setStatus('DOCX exported.');
   };
 
   return (
     <div className="main-viewport">
       <div className="background-mesh"></div>
+
       <div className="glass-panel" style={{ maxWidth: '900px', margin: '0 auto' }}>
-        <h1 className="hero-title">Research <span className="gradient-text">Lab</span></h1>
-        
-        <div className="input-group" style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-          <input 
-            type="text" value={topic} onChange={(e) => setTopic(e.target.value)}
-            placeholder="Paper Topic..." className="glass-input"
-            style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '1rem', borderRadius: '12px', color: '#fff' }}
-          />
-          <button onClick={generatePaper} disabled={loading} className="btn-primary">
-            {loading ? 'Processing...' : 'Generate'}
+        <h1 className="hero-title">
+          Research <span className="gradient-text">Formatter</span>
+        </h1>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
+          Paste your research content below. We'll restructure it into a clean academic format — preserving every number, citation, and finding exactly as you wrote it.
+        </p>
+
+        {/* Textarea Input */}
+        <textarea
+          value={content}
+          onChange={e => setContent(e.target.value)}
+          placeholder="Paste your research content here…"
+          rows={10}
+          style={{
+            width: '100%', background: 'rgba(255,255,255,0.03)',
+            border: '1px solid var(--glass-border)', borderRadius: '14px',
+            padding: '1.25rem', color: '#fff', fontSize: '0.95rem',
+            lineHeight: '1.7', resize: 'vertical', marginBottom: '1rem',
+            fontFamily: 'inherit', outline: 'none'
+          }}
+        />
+
+        {/* Format Selector + Button Row */}
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', alignItems: 'center' }}>
+          <select
+            value={format}
+            onChange={e => setFormat(e.target.value)}
+            style={{
+              background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)',
+              borderRadius: '12px', padding: '0.85rem 1.25rem', color: '#fff',
+              fontSize: '0.9rem', cursor: 'pointer', outline: 'none'
+            }}
+          >
+            <option value="ieee">IEEE Format</option>
+            <option value="custom">Custom Format</option>
+          </select>
+
+          <button
+            onClick={handleFormat}
+            disabled={loading}
+            className="btn-primary"
+            style={{ flex: 1, opacity: loading ? 0.6 : 1 }}
+          >
+            {loading ? 'Formatting…' : 'Format My Research'}
           </button>
         </div>
 
-        {status && <div style={{ color: 'var(--accent-primary)', marginBottom: '1rem' }}>● {status}</div>}
+        {/* Status Line */}
+        {status && (
+          <div style={{ color: isFallback ? '#f59e0b' : 'var(--accent-primary)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+            ● {status}
+            {isFallback && <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', opacity: 0.7 }}>(Fallback — AI was unavailable)</span>}
+          </div>
+        )}
 
-        {paper && (
+        {/* Output */}
+        {result && (
           <div className="fade-in">
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-              <button onClick={downloadPDF} className="btn-secondary" style={{ flex: 1 }}>Export PDF</button>
-              <button onClick={downloadDOCX} className="btn-secondary" style={{ flex: 1 }}>Export DOCX</button>
+            {/* Export Buttons — Reusing existing pipeline */}
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem' }}>
+              <button
+                onClick={downloadPDF}
+                style={{
+                  flex: 1, padding: '0.85rem', borderRadius: '12px', cursor: 'pointer',
+                  background: 'transparent', border: '1px solid var(--accent-primary)',
+                  color: 'var(--accent-primary)', fontWeight: 600
+                }}
+              >
+                Export PDF
+              </button>
+              <button
+                onClick={downloadDOCX}
+                style={{
+                  flex: 1, padding: '0.85rem', borderRadius: '12px', cursor: 'pointer',
+                  background: 'transparent', border: '1px solid var(--accent-primary)',
+                  color: 'var(--accent-primary)', fontWeight: 600
+                }}
+              >
+                Export DOCX
+              </button>
             </div>
-            
-            <div style={{ position: 'absolute', left: '-9999px' }}>
-              <div ref={paperRef} className="ieee-document">
-                <h1 className="ieee-title">{topic.toUpperCase()}</h1>
-                <div className="ieee-columns">
-                  {paper.split('\n').map((l, i) => <p key={i} className="ieee-text">{l}</p>)}
-                </div>
+
+            {/* Hidden IEEE render target for PDF capture */}
+            <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+              <div
+                ref={paperRef}
+                className="ieee-document"
+                style={{
+                  width: '210mm', padding: '20mm', background: '#fff',
+                  fontFamily: '"Times New Roman", serif', fontSize: '10pt',
+                  color: '#000', lineHeight: '1.2'
+                }}
+              >
+                {result.split('\n').map((line, i) => {
+                  const isHead = /^(ABSTRACT|INTRODUCTION|METHODOLOGY|RESULTS|DISCUSSION|CONCLUSION|REFERENCES)/i.test(line);
+                  return isHead
+                    ? <h2 key={i} style={{ fontWeight: 'bold', textTransform: 'uppercase', marginTop: '1.5em' }}>{line}</h2>
+                    : <p key={i} style={{ textAlign: 'justify', marginBottom: '0.5em' }}>{line}</p>;
+                })}
               </div>
             </div>
 
-            <div className="preview-container" style={{ background: '#fff', color: '#000', padding: '2rem', borderRadius: '8px', height: '400px', overflowY: 'auto', fontFamily: 'serif' }}>
-              <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{paper}</pre>
+            {/* Preview */}
+            <div style={{
+              background: '#fff', color: '#000', padding: '2.5rem',
+              borderRadius: '10px', maxHeight: '450px', overflowY: 'auto',
+              fontFamily: '"Times New Roman", serif', textAlign: 'justify'
+            }}>
+              <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '10pt', lineHeight: '1.6' }}>{result}</pre>
             </div>
           </div>
         )}
