@@ -65,7 +65,7 @@ export default function Chatbot() {
               <div className="status-dot"></div>
               <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Academic Assistant</span>
             </div>
-            <button onClick={() => setIsOpen(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
+            <button onClick={() => setIsOpen(false)} aria-label="Close assistant" style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1.2rem' }}>x</button>
           </div>
 
           {/* Messages */}
@@ -91,7 +91,7 @@ export default function Chatbot() {
           </div>
 
           {/* Input */}
-          <div style={{ padding: '1rem', borderTop: '1px solid var(--glass-border)', display: 'flex', gap: '0.75rem' }}>
+          <div className="chat-input-row" style={{ padding: '1rem', borderTop: '1px solid var(--glass-border)', display: 'flex', gap: '0.75rem' }}>
             <input 
               type="text" 
               placeholder="Ask anything..." 
@@ -105,10 +105,10 @@ export default function Chatbot() {
               }}
             />
             <button onClick={handleSend} disabled={isLoading} style={{ 
-              padding: '0.75rem', borderRadius: '10px', background: 'var(--accent-primary)',
+              padding: '0.75rem 0.9rem', borderRadius: '10px', background: 'var(--accent-primary)',
               border: 'none', color: 'black', fontWeight: 700, cursor: 'pointer'
             }}>
-              →
+              Send
             </button>
           </div>
         </div>
@@ -153,6 +153,28 @@ export default function Chatbot() {
           border-color: var(--accent-primary);
           box-shadow: 0 0 20px var(--accent-glow);
           transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @media (max-width: 640px) {
+          .chatbot-wrapper {
+            right: 1rem !important;
+            bottom: 1rem !important;
+          }
+          .chat-window {
+            width: calc(100vw - 2rem) !important;
+            height: min(520px, calc(100vh - 2rem)) !important;
+            border-radius: 18px !important;
+          }
+          .chat-toggle {
+            width: 56px !important;
+            height: 56px !important;
+          }
+          .chat-input-row {
+            gap: 0.5rem !important;
+            padding: 0.85rem !important;
+          }
+          .chat-input-row input {
+            min-width: 0 !important;
+          }
         }
       `}</style>
     </div>

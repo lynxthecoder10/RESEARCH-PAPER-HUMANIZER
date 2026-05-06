@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react';
 
 function modeLabel(provider) {
   return provider === 'copyleaks'
-    ? 'Live Scan – Copyleaks'
-    : 'Demo Mode – Local Similarity Analysis';
+    ? 'Live Scan - Copyleaks'
+    : 'Demo Mode - Local Similarity Analysis';
 }
 
 function riskColor(risk) {
@@ -428,6 +428,58 @@ export default function SimilarityCheckerClient({ initialProvider = 'mock' }) {
           }
           .hero-title {
             font-size: 3.5rem;
+          }
+        }
+        @media (max-width: 640px) {
+          .similarity-page {
+            gap: 1.25rem;
+          }
+          .hero-title {
+            font-size: 2.5rem;
+          }
+          .hero-subtitle {
+            font-size: 0.95rem;
+          }
+          .mode-badge,
+          .info-banner,
+          .flag-pill {
+            border-radius: 12px;
+            width: 100%;
+            line-height: 1.45;
+          }
+          .input-panel,
+          .matches-panel,
+          .placeholder-panel {
+            padding: 1.2rem;
+          }
+          .panel-heading,
+          .match-item div {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 0.35rem;
+          }
+          .panel-heading span {
+            max-width: 100%;
+          }
+          .similarity-textarea {
+            min-height: 220px;
+            font-size: 0.95rem;
+          }
+          .result-cards {
+            gap: 0.75rem;
+          }
+          .result-card {
+            padding: 1rem;
+          }
+          .result-card strong {
+            font-size: 1.6rem;
+          }
+          .review-table {
+            font-size: 0.88rem;
+            border-radius: 12px;
+          }
+          .review-table div {
+            padding: 0.75rem;
           }
         }
       `}</style>
