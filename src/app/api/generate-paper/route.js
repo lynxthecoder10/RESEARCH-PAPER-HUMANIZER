@@ -53,19 +53,36 @@ const STOP_WORDS = new Set([
 
 // --- INTEGRITY EXTRACTOR ---
 function extractIntegrityTokens(text) {
-  const numbers = text.match(/\b\d+\.?\d*%?\b/g) || [];
+  const numericText = String(text || '');
+  const compoundPattern = /\b\d+(?:\.\d+)?\s*(?:%|(?:bps|kbps|mbps|gbps|tbps|hz|khz|mhz|ghz|ms|sec|secs|seconds|s|min|mins|minutes|h|hr|hrs|hours|kb|mb|gb|tb|bytes|bit|bits|w|kw|v|kv|a|ma|c|f|k|m|cm|mm|km|kg|g|mg|l|ml)\b)/gi;
+  const compoundNumbers = numericText.match(compoundPattern) || [];
+  const textWithoutCompounds = numericText.replace(compoundPattern, ' ');
+  const plainNumbers = textWithoutCompounds.match(/\b\d+(?:\.\d+)?\b/g) || [];
+  const numbers = [...compoundNumbers, ...plainNumbers].map(number => number.replace(/\s+/g, ' ').trim());
   const citations = text.match(/\[\d+\]/g) || [];
   return { numbers: [...new Set(numbers)], citations: [...new Set(citations)] };
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function hasIntegrityToken(text, token, label) {
+  if (label === 'citations') return text.includes(token);
+  if (/[a-z%]/i.test(token)) return text.toLowerCase().includes(token.toLowerCase());
+
+  const numericPattern = new RegExp(`(^|[^\\d.])${escapeRegExp(token)}($|[^\\d.])`);
+  return numericPattern.test(text);
 }
 
 function verifyIntegrity(original, formatted) {
   const { numbers, citations } = extractIntegrityTokens(original);
   for (const number of numbers) {
-    if (!formatted.includes(number)) return false;
+    if (!hasIntegrityToken(formatted, number, 'numbers')) return false;
   }
 
   for (const cite of citations) {
-    if (!formatted.includes(cite)) return false;
+    if (!hasIntegrityToken(formatted, cite, 'citations')) return false;
   }
   return true;
 }
@@ -83,14 +100,25 @@ function sanitizeMarkdownArtifacts(text) {
 }
 
 function splitSentences(text) {
-  return String(text || '')
-    .replace(/\s+/g, ' ')
+  const decimalSafeText = String(text || '')
+    .replace(/(\d)\.(\d)/g, '$1<DECIMAL>$2')
+    .replace(/\s+/g, ' ');
+
+  return decimalSafeText
     .match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map(sentence => sentence.trim())
+    .map(sentence => sentence.replace(/<DECIMAL>/g, '.'))
     .filter(sentence => sentence.split(/\s+/).length >= 5) || [];
 }
 
 function sentenceFromSource(content, index = 0) {
-  const sentences = splitSentences(sanitizeMarkdownArtifacts(content));
+  const lines = sanitizeMarkdownArtifacts(content)
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+  const bodyLines = lines.filter((line, lineIndex) => {
+    return !(lineIndex === 0 && line.split(/\s+/).length <= 10 && !/[.!?]$/.test(line));
+  });
+  const sentences = splitSentences(joinAcademicLines(bodyLines));
   return sentences[index] || sentences[0] || String(content || '').replace(/\s+/g, ' ').trim();
 }
 
@@ -155,7 +183,10 @@ function joinAcademicLines(lines = []) {
 function topicInSentence(content) {
   const topic = extractTopic(content);
   if (/^[A-Z0-9]{2,}\b/.test(topic)) return topic;
-  return topic.charAt(0).toLowerCase() + topic.slice(1);
+  return topic
+    .split(/\s+/)
+    .map(word => (/^[A-Z0-9-]{2,}$/.test(word) ? word : word.toLowerCase()))
+    .join(' ');
 }
 
 function extractKeywords(content) {
@@ -209,10 +240,10 @@ function fallbackSentences(section, content) {
 
   const bySection = {
     ABSTRACT: [
-      `This paper examines ${topic} as presented in the submitted material.`,
-      `The content is organized to clarify its purpose, approach, and academic significance without changing the original meaning.`,
-      `The discussion preserves the source emphasis on ${topic} and presents it in a formal IEEE-style structure.`,
-      `This formatting approach improves readability while retaining the technical intent, cited evidence, and numerical details supplied by the user.`
+      `This paper examines ${topic} as presented in the submitted material, focusing on the stated purpose, problem context, and academic relevance while preserving the original claims, numerical values, and citations supplied by the user.`,
+      'The approach organizes the source content into an IEEE-style research structure by separating contextual material, methodological framing, reported outcomes, interpretive discussion, and concluding significance without introducing unsupported external facts.',
+      `The resulting paper clarifies how the submitted information supports the research objective, identifies the main findings from the source material, and keeps deeper technical explanation outside the introductory framing.`,
+      'This formatting improves readability, export readiness, and academic coherence while remaining limited to the supplied content and indicating future scope only as a continuation of the original research direction.'
     ],
     INTRODUCTION: [
       `The study introduces ${topic} within its relevant academic and technical context.`,
@@ -280,7 +311,8 @@ function ensureSentenceCount(section, value, content) {
 }
 
 function appendMissingIntegrity(section, value, original, label) {
-  const missing = extractIntegrityTokens(original)[label].filter(token => !value.includes(token));
+  const missing = extractIntegrityTokens(original)[label]
+    .filter(token => !hasIntegrityToken(value, token, label));
   if (!missing.length) return value;
 
   const sentence = label === 'numbers'
