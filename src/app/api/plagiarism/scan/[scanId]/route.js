@@ -1,11 +1,7 @@
-import { NextResponse } from 'next/server';
 import { findScan } from '@/../lib/plagiarismScanStore.js';
+import { authenticatedUserFromRequest, jsonResponse } from '@/../lib/auth.js';
 
 export const runtime = 'nodejs';
-
-function jsonError(message, status = 400) {
-  return NextResponse.json({ error: message }, { status });
-}
 
 function scanToResponse(scan) {
   return {
@@ -25,14 +21,19 @@ function scanToResponse(scan) {
 
 export async function GET(req, context) {
   try {
-    const { scanId } = await context.params;
-    const scan = await findScan(scanId);
-    if (!scan) {
-      return jsonError('Scan not found', 404);
+    const user = authenticatedUserFromRequest(req);
+    if (!user) {
+      return jsonResponse({ error: 'Authentication required' }, 401);
     }
 
-    return NextResponse.json(scanToResponse(scan));
+    const { scanId } = await context.params;
+    const scan = await findScan(scanId, user.userId);
+    if (!scan) {
+      return jsonResponse({ error: 'Scan not found' }, 404);
+    }
+
+    return jsonResponse(scanToResponse(scan));
   } catch (error) {
-    return jsonError(error.message || 'Failed to fetch scan', error.status || 500);
+    return jsonResponse({ error: error.message || 'Failed to fetch scan' }, error.status || 500);
   }
 }

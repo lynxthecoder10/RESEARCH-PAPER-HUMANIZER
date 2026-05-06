@@ -12,6 +12,7 @@ const FlagSchema = new mongoose.Schema({
 }, { _id: false });
 
 const PlagiarismScanSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   scanId: { type: String, required: true, unique: true, index: true },
   provider: { type: String, required: true },
   status: { type: String, required: true },
@@ -25,6 +26,8 @@ const PlagiarismScanSchema = new mongoose.Schema({
   preview: { type: String, required: true },
   createdAt: { type: Date, default: Date.now }
 });
+
+PlagiarismScanSchema.index({ userId: 1, createdAt: -1 });
 
 export default mongoose.models.PlagiarismScan ||
   mongoose.model('PlagiarismScan', PlagiarismScanSchema);

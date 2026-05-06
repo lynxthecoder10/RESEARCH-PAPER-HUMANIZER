@@ -446,11 +446,21 @@ body {
 
   .sidebar-nav {
     padding: 0.35rem 0.85rem 0.85rem !important;
+    flex-wrap: wrap !important;
+    overflow-x: visible !important;
   }
 
   .nav-item {
+    flex: 1 1 calc(50% - 0.5rem) !important;
+    justify-content: center !important;
+    min-width: 0 !important;
     padding: 0.65rem 0.8rem !important;
     font-size: 0.86rem !important;
+  }
+
+  .nav-text {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 
   .hero-title {
@@ -462,6 +472,7 @@ body {
   .hero-subtitle {
     font-size: 0.95rem;
     margin-bottom: 1.35rem;
+    overflow-wrap: break-word;
   }
 
   .glass-panel {
@@ -484,6 +495,7 @@ body {
 
   .feature-card p {
     font-size: 0.92rem;
+    overflow-wrap: break-word;
   }
 
   .icon-box {

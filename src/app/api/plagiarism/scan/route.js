@@ -1,8 +1,8 @@
 import { createHash, randomUUID } from 'crypto';
-import { NextResponse } from 'next/server';
 import { detectType, extractText } from '@/../lib/extract.js';
 import { saveScan } from '@/../lib/plagiarismScanStore.js';
 import { runSimilarityScan } from '@/../lib/similarityProvider.js';
+import { authenticatedUserFromRequest, jsonResponse } from '@/../lib/auth.js';
 
 export const runtime = 'nodejs';
 
@@ -13,10 +13,6 @@ const RATE_WINDOW_MS = 60 * 1000;
 
 const rateLimitStore = globalThis.similarityScanRateLimit ||
   (globalThis.similarityScanRateLimit = new Map());
-
-function jsonError(message, status = 400) {
-  return NextResponse.json({ error: message }, { status });
-}
 
 function clientIp(req) {
   const forwarded = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
@@ -71,10 +67,16 @@ async function textFromRequest(formData) {
       throw Object.assign(new Error('Unsupported file type'), { status: 400 });
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const extractedText = (await extractText(buffer, type)).trim();
-    if (extractedText.length < 100) {
-      throw Object.assign(new Error('File appears scanned. Paste text instead.'), { status: 400 });
+    let extractedText = '';
+    try {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      extractedText = String(await extractText(buffer, type)).trim();
+    } catch {
+      throw Object.assign(new Error('Invalid or scanned file'), { status: 400 });
+    }
+
+    if (!extractedText || extractedText.length < 100) {
+      throw Object.assign(new Error('Invalid or scanned file'), { status: 400 });
     }
 
     return extractedText;
@@ -85,19 +87,30 @@ async function textFromRequest(formData) {
 
 export async function POST(req) {
   try {
-    if (!enforceRateLimit(req)) {
-      return jsonError('Rate limit exceeded', 429);
+    const user = authenticatedUserFromRequest(req);
+    if (!user) {
+      return jsonResponse({ error: 'Authentication required' }, 401);
     }
 
-    const formData = await req.formData();
+    if (!enforceRateLimit(req)) {
+      return jsonResponse({ error: 'Rate limit exceeded' }, 429);
+    }
+
+    let formData;
+    try {
+      formData = await req.formData();
+    } catch {
+      return jsonResponse({ error: 'Invalid form data' }, 400);
+    }
+
     const text = await textFromRequest(formData);
 
     if (!text) {
-      return jsonError('Text or file required');
+      return jsonResponse({ error: 'Text or file required' }, 400);
     }
 
     if (wordCount(text) > MAX_WORDS) {
-      return jsonError('Input too large', 413);
+      return jsonResponse({ error: 'Input too large' }, 413);
     }
 
     const report = await runSimilarityScan(text);
@@ -105,6 +118,7 @@ export async function POST(req) {
     const textHash = hashText(text);
 
     await saveScan({
+      userId: user.userId,
       scanId,
       provider: report.provider,
       status: 'completed',
@@ -118,12 +132,12 @@ export async function POST(req) {
       preview: buildPreview(text)
     });
 
-    return NextResponse.json({
+    return jsonResponse({
       scanId,
       status: 'completed',
       report
     });
   } catch (error) {
-    return jsonError(error.message || 'Similarity scan failed', error.status || 500);
+    return jsonResponse({ error: error.message || 'Similarity scan failed' }, error.status || 500);
   }
 }
