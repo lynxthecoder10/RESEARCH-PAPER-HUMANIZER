@@ -13,6 +13,9 @@ const Icons = {
   Humanizer: () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
   ),
+  Similarity: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+  ),
   History: () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
   )
@@ -25,6 +28,7 @@ export default function Sidebar() {
     { name: 'Dashboard', path: '/', Icon: Icons.Dashboard },
     { name: 'Research Formatter', path: '/generate', Icon: Icons.Generator },
     { name: 'AI Humanizer', path: '/humanize', Icon: Icons.Humanizer },
+    { name: 'Similarity Checker', path: '/plagiarism', Icon: Icons.Similarity },
     { name: 'History Archive', path: '/history', Icon: Icons.History },
   ];
 
