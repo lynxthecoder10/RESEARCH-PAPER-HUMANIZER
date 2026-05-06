@@ -53,13 +53,14 @@ const STOP_WORDS = new Set([
 
 // --- INTEGRITY EXTRACTOR ---
 function extractIntegrityTokens(text) {
-  const numericText = String(text || '');
+  const rawText = String(text || '');
+  const numericText = rawText.replace(/\[\d+\]/g, ' ');
   const compoundPattern = /\b\d+(?:\.\d+)?\s*(?:%|(?:bps|kbps|mbps|gbps|tbps|hz|khz|mhz|ghz|ms|sec|secs|seconds|s|min|mins|minutes|h|hr|hrs|hours|kb|mb|gb|tb|bytes|bit|bits|w|kw|v|kv|a|ma|c|f|k|m|cm|mm|km|kg|g|mg|l|ml)\b)/gi;
   const compoundNumbers = numericText.match(compoundPattern) || [];
   const textWithoutCompounds = numericText.replace(compoundPattern, ' ');
   const plainNumbers = textWithoutCompounds.match(/\b\d+(?:\.\d+)?\b/g) || [];
   const numbers = [...compoundNumbers, ...plainNumbers].map(number => number.replace(/\s+/g, ' ').trim());
-  const citations = text.match(/\[\d+\]/g) || [];
+  const citations = rawText.match(/\[\d+\]/g) || [];
   return { numbers: [...new Set(numbers)], citations: [...new Set(citations)] };
 }
 
@@ -71,7 +72,7 @@ function hasIntegrityToken(text, token, label) {
   if (label === 'citations') return text.includes(token);
   if (/[a-z%]/i.test(token)) return text.toLowerCase().includes(token.toLowerCase());
 
-  const numericPattern = new RegExp(`(^|[^\\d.])${escapeRegExp(token)}($|[^\\d.])`);
+  const numericPattern = new RegExp(`(^|[^\\d.])${escapeRegExp(token)}(?!\\.\\d)(?=$|[^\\d])`);
   return numericPattern.test(text);
 }
 
