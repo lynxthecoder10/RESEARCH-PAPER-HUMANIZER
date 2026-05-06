@@ -81,7 +81,7 @@ export default function GeneratePage() {
     const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = docxLib;
 
     const paragraphs = result.split('\n').map(line => {
-      const isHeading = /^(ABSTRACT|INTRODUCTION|METHODOLOGY|RESULTS|DISCUSSION|CONCLUSION|REFERENCES)/i.test(line);
+      const isHeading = /^(TITLE|ABSTRACT|KEYWORDS|INTRODUCTION|METHODOLOGY|RESULTS|DISCUSSION|CONCLUSION|REFERENCES)/i.test(line);
       return new Paragraph({
         children: [new TextRun({ text: line, size: isHeading ? 24 : 20, bold: isHeading })],
         heading: isHeading ? HeadingLevel.HEADING_1 : undefined,
@@ -101,9 +101,7 @@ export default function GeneratePage() {
   };
 
   return (
-    <div className="main-viewport">
-      <div className="background-mesh"></div>
-
+    <div className="generate-container">
       <div className="glass-panel" style={{ maxWidth: '900px', margin: '0 auto' }}>
         <h1 className="hero-title">
           Research <span className="gradient-text">Formatter</span>
@@ -199,7 +197,7 @@ export default function GeneratePage() {
                 }}
               >
                 {result.split('\n').map((line, i) => {
-                  const isHead = /^(ABSTRACT|INTRODUCTION|METHODOLOGY|RESULTS|DISCUSSION|CONCLUSION|REFERENCES)/i.test(line);
+                  const isHead = /^(TITLE|ABSTRACT|KEYWORDS|INTRODUCTION|METHODOLOGY|RESULTS|DISCUSSION|CONCLUSION|REFERENCES)/i.test(line);
                   return isHead
                     ? <h2 key={i} style={{ fontWeight: 'bold', textTransform: 'uppercase', marginTop: '1.5em' }}>{line}</h2>
                     : <p key={i} style={{ textAlign: 'justify', marginBottom: '0.5em' }}>{line}</p>;
