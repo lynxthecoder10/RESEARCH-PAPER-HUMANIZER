@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import dbConnect from '@/../lib/db';
-import PlagiarismScan from '@/../models/PlagiarismScan';
+import { updateScan } from '@/../lib/plagiarismScanStore.js';
 
 export const runtime = 'nodejs';
 
@@ -38,18 +37,11 @@ export async function POST(req, context) {
       return jsonError('scanId required');
     }
 
-    await dbConnect();
-    const scan = await PlagiarismScan.findOneAndUpdate(
-      { scanId },
-      {
-        $set: {
-          provider: 'copyleaks',
-          status,
-          ...reportUpdate(body.report)
-        }
-      },
-      { new: true }
-    ).lean();
+    const scan = await updateScan(scanId, {
+      provider: 'copyleaks',
+      status,
+      ...reportUpdate(body.report)
+    });
 
     if (!scan) {
       return jsonError('Scan not found', 404);

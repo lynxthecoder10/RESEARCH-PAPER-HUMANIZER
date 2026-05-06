@@ -1,9 +1,8 @@
 import { createHash, randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
-import dbConnect from '@/../lib/db';
 import { detectType, extractText } from '@/../lib/extract.js';
+import { saveScan } from '@/../lib/plagiarismScanStore.js';
 import { runSimilarityScan } from '@/../lib/similarityProvider.js';
-import PlagiarismScan from '@/../models/PlagiarismScan';
 
 export const runtime = 'nodejs';
 
@@ -105,8 +104,7 @@ export async function POST(req) {
     const scanId = randomUUID();
     const textHash = hashText(text);
 
-    await dbConnect();
-    await PlagiarismScan.create({
+    await saveScan({
       scanId,
       provider: report.provider,
       status: 'completed',

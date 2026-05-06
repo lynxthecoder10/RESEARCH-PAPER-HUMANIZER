@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import dbConnect from '@/../lib/db';
-import PlagiarismScan from '@/../models/PlagiarismScan';
+import { findScan } from '@/../lib/plagiarismScanStore.js';
 
 export const runtime = 'nodejs';
 
@@ -27,9 +26,7 @@ function scanToResponse(scan) {
 export async function GET(req, context) {
   try {
     const { scanId } = await context.params;
-    await dbConnect();
-
-    const scan = await PlagiarismScan.findOne({ scanId }).lean();
+    const scan = await findScan(scanId);
     if (!scan) {
       return jsonError('Scan not found', 404);
     }
