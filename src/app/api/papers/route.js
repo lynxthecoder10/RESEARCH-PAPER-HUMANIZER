@@ -8,6 +8,6 @@ export async function GET() {
     const papers = await Paper.find({}).sort({ createdAt: -1 }).limit(20);
     return NextResponse.json(papers);
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch history' }, { status: 500 });
+    return NextResponse.json([]);
   }
 }
