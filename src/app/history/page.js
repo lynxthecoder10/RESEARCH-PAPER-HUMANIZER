@@ -31,7 +31,7 @@ export default function HistoryPage() {
         </div>
       ) : papers.length === 0 ? (
         <div className="glass-panel reveal-2" style={{ textAlign: 'center', padding: '4rem' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📜</div>
+          <div style={{ fontSize: '1.5rem', marginBottom: '1rem', fontWeight: 700 }}>Archive</div>
           <h3>No records found</h3>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Your generated research papers will appear here.</p>
         </div>
@@ -52,13 +52,13 @@ export default function HistoryPage() {
                   background: 'rgba(0, 255, 163, 0.05)', border: '1px solid var(--glass-border)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem'
                 }}>
-                  📄
+                  Doc
                 </div>
                 <div>
                   <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem' }}>{paper.title || 'Untitled Research'}</h3>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
                     <span style={{ color: 'var(--accent-primary)' }}>IEEE Standard</span>
-                    <span>•</span>
+                    <span>-</span>
                     <span>{new Date(paper.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                   </div>
                 </div>
@@ -108,6 +108,21 @@ export default function HistoryPage() {
           transform: translateX(10px);
           border-color: var(--accent-primary);
           background: rgba(255,255,255,0.05);
+        }
+        @media (max-width: 700px) {
+          .history-list .glass-panel {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 1rem;
+            padding: 1.25rem !important;
+          }
+          .history-list .glass-panel > div {
+            width: 100%;
+            align-items: flex-start !important;
+          }
+          .history-list .glass-panel:hover {
+            transform: none;
+          }
         }
       `}</style>
     </div>

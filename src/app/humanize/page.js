@@ -67,7 +67,13 @@ export default function HumanizePage() {
         </div>
       )}
 
-      <div className="grid-features reveal-2" style={{ gridTemplateColumns: result ? '1fr 1fr' : '1fr', transition: 'all 0.5s ease' }}>
+      <div
+        className="grid-features reveal-2"
+        style={{
+          gridTemplateColumns: result ? 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))' : '1fr',
+          transition: 'all 0.5s ease'
+        }}
+      >
         <div className="glass-panel">
           <textarea
             placeholder="Paste your research text here..."
@@ -75,7 +81,7 @@ export default function HumanizePage() {
             onChange={(e) => setText(e.target.value)}
             className="premium-input"
             style={{ 
-              width: '100%', minHeight: '400px', padding: '1.5rem', borderRadius: '16px', 
+              width: '100%', minHeight: 'min(400px, 55vh)', padding: '1.5rem', borderRadius: '16px', 
               background: 'rgba(255,255,255,0.02)', border: '1px solid var(--glass-border)', 
               color: 'white', fontSize: '1rem', lineHeight: '1.7', resize: 'none', outline: 'none'
             }}

@@ -26,7 +26,7 @@ export default function GeneratePage() {
       const data = await res.json();
       if (data.status === 'busy' && attempts < MAX_ATTEMPTS) {
         const delay = 1000 * Math.pow(2, attempts) + Math.random() * 400;
-        setStatus(`System busy — retrying in ${Math.round(delay / 1000)}s… (${attempts + 1}/${MAX_ATTEMPTS})`);
+        setStatus(`System busy - retrying in ${Math.round(delay / 1000)}s... (${attempts + 1}/${MAX_ATTEMPTS})`);
         await new Promise(r => setTimeout(r, delay));
         return fetchWithRetry(url, options, attempts + 1);
       }
@@ -41,7 +41,7 @@ export default function GeneratePage() {
     if (!content.trim() || loading) return;
     setLoading(true);
     setResult(null);
-    setStatus('Analyzing research content…');
+    setStatus('Analyzing research content...');
 
     try {
       const data = await fetchWithRetry('/api/generate-paper', {
@@ -66,7 +66,7 @@ export default function GeneratePage() {
 
   const downloadPDF = async () => {
     if (!paperRef.current || !jsPDFLib || !html2canvasLib) return;
-    setStatus('Generating PDF…');
+    setStatus('Generating PDF...');
     const canvas = await html2canvasLib(paperRef.current, { scale: 2 });
     const img = canvas.toDataURL('image/png');
     const pdf = new jsPDFLib('p', 'mm', 'a4');
@@ -77,7 +77,7 @@ export default function GeneratePage() {
 
   const downloadDOCX = async () => {
     if (!result || !docxLib) return;
-    setStatus('Generating DOCX…');
+    setStatus('Generating DOCX...');
     const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = docxLib;
 
     const paragraphs = result.split('\n').map(line => {
@@ -107,14 +107,14 @@ export default function GeneratePage() {
           Research <span className="gradient-text">Formatter</span>
         </h1>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
-          Paste your research content below. We&apos;ll restructure it into a clean academic format — preserving every number, citation, and finding exactly as you wrote it.
+          Paste your research content below. We&apos;ll restructure it into a clean academic format while preserving every number, citation, and finding exactly as you wrote it.
         </p>
 
         {/* Textarea Input */}
         <textarea
           value={content}
           onChange={e => setContent(e.target.value)}
-          placeholder="Paste your research content here…"
+          placeholder="Paste your research content here..."
           rows={10}
           style={{
             width: '100%', background: 'rgba(255,255,255,0.03)',
@@ -126,14 +126,15 @@ export default function GeneratePage() {
         />
 
         {/* Format Selector + Button Row */}
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', alignItems: 'center' }}>
+        <div className="format-controls" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem', alignItems: 'center' }}>
           <select
             value={format}
             onChange={e => setFormat(e.target.value)}
             style={{
               background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)',
               borderRadius: '12px', padding: '0.85rem 1.25rem', color: '#fff',
-              fontSize: '0.9rem', cursor: 'pointer', outline: 'none'
+              fontSize: '0.9rem', cursor: 'pointer', outline: 'none',
+              flex: '1 1 180px', minWidth: 0
             }}
           >
             <option value="ieee">IEEE Format</option>
@@ -144,29 +145,29 @@ export default function GeneratePage() {
             onClick={handleFormat}
             disabled={loading}
             className="btn-primary"
-            style={{ flex: 1, opacity: loading ? 0.6 : 1 }}
+            style={{ flex: '2 1 240px', opacity: loading ? 0.6 : 1 }}
           >
-            {loading ? 'Formatting…' : 'Format My Research'}
+            {loading ? 'Formatting...' : 'Format My Research'}
           </button>
         </div>
 
         {/* Status Line */}
         {status && (
           <div style={{ color: isFallback ? '#f59e0b' : 'var(--accent-primary)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-            ● {status}
-            {isFallback && <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', opacity: 0.7 }}>(Fallback — AI was unavailable)</span>}
+            Status: {status}
+            {isFallback && <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', opacity: 0.7 }}>(Fallback - AI was unavailable)</span>}
           </div>
         )}
 
         {/* Output */}
         {result && (
           <div className="fade-in">
-            {/* Export Buttons — Reusing existing pipeline */}
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem' }}>
+            {/* Export buttons */}
+            <div className="export-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
               <button
                 onClick={downloadPDF}
                 style={{
-                  flex: 1, padding: '0.85rem', borderRadius: '12px', cursor: 'pointer',
+                  flex: '1 1 150px', padding: '0.85rem', borderRadius: '12px', cursor: 'pointer',
                   background: 'transparent', border: '1px solid var(--accent-primary)',
                   color: 'var(--accent-primary)', fontWeight: 600
                 }}
@@ -176,7 +177,7 @@ export default function GeneratePage() {
               <button
                 onClick={downloadDOCX}
                 style={{
-                  flex: 1, padding: '0.85rem', borderRadius: '12px', cursor: 'pointer',
+                  flex: '1 1 150px', padding: '0.85rem', borderRadius: '12px', cursor: 'pointer',
                   background: 'transparent', border: '1px solid var(--accent-primary)',
                   color: 'var(--accent-primary)', fontWeight: 600
                 }}
@@ -207,7 +208,7 @@ export default function GeneratePage() {
 
             {/* Preview */}
             <div style={{
-              background: '#fff', color: '#000', padding: '2.5rem',
+              background: '#fff', color: '#000', padding: 'clamp(1rem, 4vw, 2.5rem)',
               borderRadius: '10px', maxHeight: '450px', overflowY: 'auto',
               fontFamily: '"Times New Roman", serif', textAlign: 'justify'
             }}>
