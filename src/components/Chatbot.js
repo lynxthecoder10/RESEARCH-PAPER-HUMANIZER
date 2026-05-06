@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { useState, useRef, useEffect } from 'react';
 
 export default function Chatbot() {
@@ -123,9 +124,11 @@ export default function Chatbot() {
             overflow: 'hidden', padding: '0'
           }}
         >
-          <img 
+          <Image
             src="/logo.png" 
             alt="AI" 
+            width={64}
+            height={64}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
           />
         </button>

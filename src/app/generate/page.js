@@ -109,7 +109,7 @@ export default function GeneratePage() {
           Research <span className="gradient-text">Formatter</span>
         </h1>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
-          Paste your research content below. We'll restructure it into a clean academic format — preserving every number, citation, and finding exactly as you wrote it.
+          Paste your research content below. We&apos;ll restructure it into a clean academic format — preserving every number, citation, and finding exactly as you wrote it.
         </p>
 
         {/* Textarea Input */}

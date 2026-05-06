@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -31,7 +32,7 @@ export default function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-logo">
         <div className="logo-icon-wrapper">
-          <img src="/logo.png" alt="AS" className="logo-img" />
+          <Image src="/logo.png" alt="AS" className="logo-img" width={32} height={32} />
         </div>
         <div className="logo-text">Academic <span className="gradient-text">Suite</span></div>
       </div>
