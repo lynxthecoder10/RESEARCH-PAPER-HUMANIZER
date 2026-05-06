@@ -1,127 +1,109 @@
 'use client';
 import { useEffect, useState } from 'react';
 
+async function parseJsonSafe(res) {
+  try {
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
+function riskColor(risk) {
+  if (risk === 'high') return '#ef4444';
+  if (risk === 'medium') return '#f59e0b';
+  return 'var(--accent-primary)';
+}
+
 export default function HistoryPage() {
-  const [papers, setPapers] = useState([]);
+  const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch('/api/papers')
-      .then(res => res.json())
-      .then(data => {
-        setPapers(Array.isArray(data) ? data : []);
+    const load = async () => {
+      try {
+        const res = await fetch('/api/plagiarism/history', { cache: 'no-store' });
+        if (!res.ok) {
+          const err = await parseJsonSafe(res);
+          throw new Error(err.error || 'Unable to load history');
+        }
+        const data = await parseJsonSafe(res);
+        setScans(Array.isArray(data.scans) ? data.scans : []);
+      } catch (err) {
+        setScans([]);
+        setError(err.message || 'Unable to load history');
+      } finally {
         setLoading(false);
-      })
-      .catch(() => {
-        setLoading(false);
-      });
+      }
+    };
+
+    load();
   }, []);
 
   return (
     <div className="history-container">
       <header className="reveal-1">
-        <h1 className="hero-title">Research <span className="gradient-text">Archive</span></h1>
-        <p className="hero-subtitle">Securely access and manage your collection of high-fidelity research generations.</p>
+        <h1 className="hero-title">Similarity <span className="gradient-text">History</span></h1>
+        <p className="hero-subtitle">Review your account-specific similarity scan reports.</p>
       </header>
 
       {loading ? (
-        <div className="glass-panel reveal-2" style={{ textAlign: 'center', padding: '4rem' }}>
-          <div className="pulse-loader"></div>
-          <p style={{ marginTop: '1.5rem', color: 'var(--text-secondary)' }}>Decrypting archives...</p>
+        <div className="glass-panel reveal-2" style={{ textAlign: 'center', padding: '3rem' }}>
+          <p style={{ color: 'var(--text-secondary)' }}>Loading your scan history...</p>
         </div>
-      ) : papers.length === 0 ? (
-        <div className="glass-panel reveal-2" style={{ textAlign: 'center', padding: '4rem' }}>
-          <div style={{ fontSize: '1.5rem', marginBottom: '1rem', fontWeight: 700 }}>Archive</div>
-          <h3>No records found</h3>
-          <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Your generated research papers will appear here.</p>
+      ) : error ? (
+        <div className="glass-panel reveal-2" style={{ textAlign: 'center', padding: '3rem' }}>
+          <p style={{ color: '#fecaca' }}>{error}</p>
+        </div>
+      ) : scans.length === 0 ? (
+        <div className="glass-panel reveal-2" style={{ textAlign: 'center', padding: '3rem' }}>
+          <h3>No scan history found</h3>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+            Run a similarity scan after signing in to populate this archive.
+          </p>
         </div>
       ) : (
         <div className="history-list reveal-2">
-          {papers.map((paper, index) => (
-            <div 
-              key={paper._id || index} 
+          {scans.map((scan, index) => (
+            <article
+              key={scan.scanId || index}
               className={`glass-panel reveal-${Math.min(index + 2, 4)}`}
-              style={{ 
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-                marginBottom: '1rem', padding: '1.25rem 2rem', transition: 'transform 0.3s'
-              }}
+              style={{ marginBottom: '1rem', padding: '1.25rem 1.5rem' }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-                <div style={{ 
-                  width: '50px', height: '50px', borderRadius: '12px', 
-                  background: 'rgba(0, 255, 163, 0.05)', border: '1px solid var(--glass-border)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem'
-                }}>
-                  Doc
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.1rem', marginBottom: '0.25rem' }}>{paper.title || 'Untitled Research'}</h3>
-                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                    <span style={{ color: 'var(--accent-primary)' }}>IEEE Standard</span>
-                    <span>-</span>
-                    <span>{new Date(paper.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                  </div>
-                </div>
+              <div className="history-top">
+                <strong>{scan.similarity}% similarity</strong>
+                <span style={{ color: riskColor(scan.risk), textTransform: 'capitalize' }}>{scan.risk}</span>
               </div>
-              
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                <div style={{ textAlign: 'right', marginRight: '1rem' }}>
-                  <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-secondary)', letterSpacing: '1px' }}>Integrity</div>
-                  <div style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>VERIFIED</div>
-                </div>
-                {paper.pdfUrl && (
-                  <a 
-                    href={paper.pdfUrl} 
-                    download 
-                    className="btn-primary" 
-                    style={{ 
-                      padding: '0.6rem 1.5rem', fontSize: '0.85rem', 
-                      background: 'rgba(255,255,255,0.05)', color: 'white', 
-                      border: '1px solid var(--glass-border)', boxShadow: 'none' 
-                    }}
-                  >
-                    Download
-                  </a>
-                )}
-              </div>
-            </div>
+              <p className="history-meta">
+                {scan.wordCount} words · {new Date(scan.createdAt).toLocaleString()}
+              </p>
+              <p className="history-preview">{scan.preview}</p>
+            </article>
           ))}
         </div>
       )}
 
       <style jsx>{`
-        .pulse-loader {
-          width: 40px;
-          height: 40px;
-          margin: 0 auto;
-          background: var(--accent-primary);
-          border-radius: 50%;
-          animation: pulse 1.5s ease-out infinite;
-          box-shadow: 0 0 20px var(--accent-primary);
+        .history-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 0.75rem;
+          margin-bottom: 0.5rem;
         }
-        @keyframes pulse {
-          0% { transform: scale(0.8); opacity: 0.5; }
-          50% { transform: scale(1.1); opacity: 1; }
-          100% { transform: scale(0.8); opacity: 0.5; }
+        .history-meta,
+        .history-preview {
+          color: var(--text-secondary);
         }
-        .history-list .glass-panel:hover {
-          transform: translateX(10px);
-          border-color: var(--accent-primary);
-          background: rgba(255,255,255,0.05);
+        .history-meta {
+          font-size: 0.85rem;
+          margin-bottom: 0.65rem;
         }
         @media (max-width: 700px) {
-          .history-list .glass-panel {
+          .history-top {
             flex-direction: column;
-            align-items: flex-start !important;
-            gap: 1rem;
-            padding: 1.25rem !important;
-          }
-          .history-list .glass-panel > div {
-            width: 100%;
-            align-items: flex-start !important;
-          }
-          .history-list .glass-panel:hover {
-            transform: none;
+            align-items: flex-start;
           }
         }
       `}</style>

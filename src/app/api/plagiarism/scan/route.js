@@ -141,3 +141,11 @@ export async function POST(req) {
     return jsonResponse({ error: error.message || 'Similarity scan failed' }, error.status || 500);
   }
 }
+
+export async function GET() {
+  try {
+    return jsonResponse({ error: 'Method not allowed' }, 405);
+  } catch (error) {
+    return jsonResponse({ error: error.message || 'Method not allowed' }, 405);
+  }
+}

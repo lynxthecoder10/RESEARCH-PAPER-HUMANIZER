@@ -1,11 +1,7 @@
-import { NextResponse } from 'next/server';
 import { updateScan } from '@/../lib/plagiarismScanStore.js';
+import { jsonResponse } from '@/../lib/auth.js';
 
 export const runtime = 'nodejs';
-
-function jsonError(message, status = 400) {
-  return NextResponse.json({ error: message }, { status });
-}
 
 function reportUpdate(report = {}) {
   const update = {};
@@ -22,7 +18,7 @@ export async function POST(req, context) {
     const secret = req.headers.get('x-webhook-secret') || url.searchParams.get('secret');
 
     if (!process.env.COPYLEAKS_WEBHOOK_SECRET || secret !== process.env.COPYLEAKS_WEBHOOK_SECRET) {
-      return jsonError('Invalid webhook secret', 401);
+      return jsonResponse({ error: 'Invalid webhook secret' }, 401);
     }
 
     let body = {};
@@ -34,7 +30,7 @@ export async function POST(req, context) {
 
     const scanId = body.scanId || body.id || body?.scannedDocument?.scanId;
     if (!scanId) {
-      return jsonError('scanId required');
+      return jsonResponse({ error: 'scanId required' }, 400);
     }
 
     const scan = await updateScan(scanId, {
@@ -44,11 +40,19 @@ export async function POST(req, context) {
     });
 
     if (!scan) {
-      return jsonError('Scan not found', 404);
+      return jsonResponse({ error: 'Scan not found' }, 404);
     }
 
-    return NextResponse.json({ scanId, status: scan.status });
+    return jsonResponse({ scanId, status: scan.status });
   } catch (error) {
-    return jsonError(error.message || 'Webhook failed', error.status || 500);
+    return jsonResponse({ error: error.message || 'Webhook failed' }, error.status || 500);
+  }
+}
+
+export async function GET() {
+  try {
+    return jsonResponse({ error: 'Method not allowed' }, 405);
+  } catch (error) {
+    return jsonResponse({ error: error.message || 'Method not allowed' }, 405);
   }
 }

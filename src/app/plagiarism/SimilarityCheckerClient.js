@@ -1,17 +1,25 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 function modeLabel(provider) {
   return provider === 'copyleaks'
-    ? 'Live Scan - Copyleaks'
-    : 'Demo Mode - Local Similarity Analysis';
+    ? 'Live Scan – Copyleaks'
+    : 'Demo Mode – Local Similarity Analysis';
 }
 
 function riskColor(risk) {
   if (risk === 'high') return '#ef4444';
   if (risk === 'medium') return '#f59e0b';
   return 'var(--accent-primary)';
+}
+
+async function parseJsonSafe(res) {
+  try {
+    return await res.json();
+  } catch {
+    return {};
+  }
 }
 
 export default function SimilarityCheckerClient({ initialProvider = 'mock' }) {
@@ -23,10 +31,124 @@ export default function SimilarityCheckerClient({ initialProvider = 'mock' }) {
   const [scanId, setScanId] = useState('');
   const [provider, setProvider] = useState(initialProvider);
 
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   const canScan = useMemo(() => Boolean(text.trim() || file), [text, file]);
 
+  const loadUser = async () => {
+    setAuthLoading(true);
+    setAuthError('');
+    try {
+      const res = await fetch('/api/auth/me', { cache: 'no-store' });
+      if (!res.ok) {
+        const err = await parseJsonSafe(res);
+        throw new Error(err.error || 'Failed to load user');
+      }
+      const data = await parseJsonSafe(res);
+      setUser(data.user || null);
+    } catch (err) {
+      setUser(null);
+      setAuthError(err.message || 'Failed to load user');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const loadHistory = useCallback(async () => {
+    if (!user) {
+      setHistory([]);
+      return;
+    }
+
+    setHistoryLoading(true);
+    try {
+      const res = await fetch('/api/plagiarism/history', { cache: 'no-store' });
+      if (!res.ok) {
+        const err = await parseJsonSafe(res);
+        throw new Error(err.error || 'Failed to load history');
+      }
+      const data = await parseJsonSafe(res);
+      setHistory(Array.isArray(data.scans) ? data.scans : []);
+    } catch (err) {
+      setHistory([]);
+      setError(err.message || 'Failed to load history');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadUser();
+  }, []);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
+  const handleAuthSubmit = async () => {
+    if (authBusy) return;
+
+    setAuthBusy(true);
+    setAuthError('');
+    try {
+      const res = await fetch(`/api/auth/${authMode}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (!res.ok) {
+        const err = await parseJsonSafe(res);
+        throw new Error(err.error || `Failed to ${authMode}`);
+      }
+
+      const data = await parseJsonSafe(res);
+      if (!data.user) {
+        throw new Error(`Failed to ${authMode}`);
+      }
+
+      setUser(data.user);
+      setPassword('');
+      setAuthError('');
+    } catch (err) {
+      setAuthError(err.message || `Failed to ${authMode}`);
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    setAuthBusy(true);
+    setAuthError('');
+    try {
+      const res = await fetch('/api/auth/logout', { method: 'POST' });
+      if (!res.ok) {
+        const err = await parseJsonSafe(res);
+        throw new Error(err.error || 'Failed to logout');
+      }
+      setUser(null);
+      setHistory([]);
+      setReport(null);
+      setScanId('');
+      setError('');
+    } catch (err) {
+      setAuthError(err.message || 'Failed to logout');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
   const handleScan = async () => {
-    if (!canScan || loading) return;
+    if (!canScan || loading || !user) return;
 
     setLoading(true);
     setError('');
@@ -42,15 +164,21 @@ export default function SimilarityCheckerClient({ initialProvider = 'mock' }) {
         method: 'POST',
         body: formData
       });
-      const data = await res.json();
 
-      if (!res.ok || data.error) {
+      if (!res.ok) {
+        const err = await parseJsonSafe(res);
+        throw new Error(err.error || 'Similarity scan failed');
+      }
+
+      const data = await parseJsonSafe(res);
+      if (data.error || !data.report) {
         throw new Error(data.error || 'Similarity scan failed');
       }
 
       setReport(data.report);
       setProvider(data.report?.provider || initialProvider);
       setScanId(data.scanId);
+      await loadHistory();
     } catch (err) {
       setError(err.message || 'Similarity scan failed');
     } finally {
@@ -69,6 +197,56 @@ export default function SimilarityCheckerClient({ initialProvider = 'mock' }) {
           </p>
         </div>
       </header>
+
+      <section className="glass-panel auth-panel reveal-2">
+        {authLoading ? (
+          <p className="auth-status">Checking session...</p>
+        ) : user ? (
+          <div className="auth-row">
+            <div>
+              <h2>Signed in</h2>
+              <p className="auth-status">{user.email}</p>
+            </div>
+            <button type="button" onClick={handleLogout} className="auth-button" disabled={authBusy}>
+              {authBusy ? 'Please wait...' : 'Sign out'}
+            </button>
+          </div>
+        ) : (
+          <div>
+            <div className="auth-row">
+              <h2>{authMode === 'login' ? 'Login' : 'Register'}</h2>
+              <button
+                type="button"
+                className="auth-toggle"
+                onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
+                disabled={authBusy}
+              >
+                {authMode === 'login' ? 'Need an account?' : 'Have an account?'}
+              </button>
+            </div>
+            <div className="auth-form">
+              <input
+                value={email}
+                onChange={event => setEmail(event.target.value)}
+                type="email"
+                placeholder="Email"
+                className="auth-input"
+              />
+              <input
+                value={password}
+                onChange={event => setPassword(event.target.value)}
+                type="password"
+                placeholder="Password (min 8 chars)"
+                className="auth-input"
+              />
+              <button type="button" onClick={handleAuthSubmit} className="auth-button" disabled={authBusy}>
+                {authBusy ? 'Please wait...' : authMode === 'login' ? 'Login' : 'Register'}
+              </button>
+            </div>
+          </div>
+        )}
+        {authError && <div className="error-box">{authError}</div>}
+      </section>
 
       <section className="info-banner reveal-2">
         This is a similarity analysis, not a definitive plagiarism verdict.
@@ -100,11 +278,15 @@ export default function SimilarityCheckerClient({ initialProvider = 'mock' }) {
 
           <button
             onClick={handleScan}
-            disabled={!canScan || loading}
+            disabled={!canScan || loading || !user}
             className="btn-primary scan-button"
           >
             {loading ? 'Analyzing...' : 'Run Similarity Analysis'}
           </button>
+
+          {!user && !authLoading && (
+            <div className="empty-state">Login or register to run a scan.</div>
+          )}
 
           {error && <div className="error-box">{error}</div>}
         </section>
@@ -166,45 +348,33 @@ export default function SimilarityCheckerClient({ initialProvider = 'mock' }) {
               <p>Run an analysis to view similarity, originality, risk, matches, and local repetition flags.</p>
             </div>
           )}
+
+          <div className="glass-panel history-panel">
+            <div className="panel-heading">
+              <h2>Your Recent Scans</h2>
+              <span>{history.length} items</span>
+            </div>
+
+            {historyLoading ? (
+              <div className="empty-state">Loading history...</div>
+            ) : history.length ? (
+              <div className="history-list">
+                {history.map(item => (
+                  <article key={item.scanId} className="history-item">
+                    <div className="history-top">
+                      <strong>{item.similarity}% similarity</strong>
+                      <span style={{ color: riskColor(item.risk) }}>{item.risk}</span>
+                    </div>
+                    <p>{item.preview}</p>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">No scans yet for this account.</div>
+            )}
+          </div>
         </section>
       </div>
-
-      <section className="review-section reveal-3">
-        <h2>Similarity Checker Review</h2>
-        <div className="review-table">
-          <div>Feature</div>
-          <div>Academic Suite</div>
-          <div>Generic Similarity Tool</div>
-          <div>Originality score</div>
-          <div>Yes</div>
-          <div>Varies</div>
-          <div>Local repetition signals</div>
-          <div>Yes</div>
-          <div>Varies</div>
-          <div>PDF/DOCX extraction</div>
-          <div>Yes</div>
-          <div>Varies</div>
-          <div>Definitive verdict claims</div>
-          <div>No</div>
-          <div>Often unclear</div>
-        </div>
-      </section>
-
-      <section className="faq-section reveal-4">
-        <h2>Similarity Checker FAQ</h2>
-        <details open>
-          <summary>Is this a definitive originality verdict?</summary>
-          <p>No. It is a similarity analysis designed to identify repetition and local similarity signals.</p>
-        </details>
-        <details>
-          <summary>Does Demo Mode search the internet?</summary>
-          <p>No. Demo Mode uses local similarity analysis and does not query external sources.</p>
-        </details>
-        <details>
-          <summary>Can it analyze uploaded documents?</summary>
-          <p>Yes. It supports text-based PDF and DOCX files up to 200KB.</p>
-        </details>
-      </section>
 
       <style jsx>{`
         .similarity-page {
@@ -247,10 +417,13 @@ export default function SimilarityCheckerClient({ initialProvider = 'mock' }) {
         }
         .input-panel,
         .matches-panel,
-        .placeholder-panel {
+        .placeholder-panel,
+        .auth-panel,
+        .history-panel {
           padding: 2rem;
         }
-        .panel-heading {
+        .panel-heading,
+        .auth-row {
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -258,8 +431,7 @@ export default function SimilarityCheckerClient({ initialProvider = 'mock' }) {
           margin-bottom: 1.25rem;
         }
         .panel-heading h2,
-        .review-section h2,
-        .faq-section h2 {
+        .auth-panel h2 {
           font-size: 1.1rem;
         }
         .panel-heading span {
@@ -269,18 +441,46 @@ export default function SimilarityCheckerClient({ initialProvider = 'mock' }) {
           text-overflow: ellipsis;
           white-space: nowrap;
         }
+        .auth-status {
+          color: var(--text-secondary);
+        }
+        .auth-form {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 0.75rem;
+        }
+        .auth-input,
         .similarity-textarea {
           width: 100%;
-          min-height: 300px;
-          resize: vertical;
           background: rgba(255,255,255,0.03);
           border: 1px solid var(--glass-border);
-          border-radius: 14px;
-          padding: 1rem;
+          border-radius: 12px;
+          padding: 0.85rem 0.95rem;
           color: #fff;
           font: inherit;
-          line-height: 1.7;
           outline: none;
+        }
+        .auth-button,
+        .auth-toggle {
+          border: 1px solid var(--glass-border);
+          border-radius: 12px;
+          background: rgba(255,255,255,0.03);
+          color: var(--text-primary);
+          cursor: pointer;
+          padding: 0.85rem 0.95rem;
+          font: inherit;
+          font-weight: 600;
+        }
+        .auth-button {
+          border-color: rgba(0, 255, 163, 0.35);
+          color: var(--accent-primary);
+        }
+        .similarity-textarea {
+          min-height: 300px;
+          resize: vertical;
+          line-height: 1.7;
+          border-radius: 14px;
+          padding: 1rem;
         }
         .file-drop {
           display: flex;
@@ -304,7 +504,9 @@ export default function SimilarityCheckerClient({ initialProvider = 'mock' }) {
           margin-top: 1rem;
           opacity: 1;
         }
-        .scan-button:disabled {
+        .scan-button:disabled,
+        .auth-button:disabled,
+        .auth-toggle:disabled {
           cursor: not-allowed;
           opacity: 0.55;
         }
@@ -343,18 +545,21 @@ export default function SimilarityCheckerClient({ initialProvider = 'mock' }) {
           font-size: 2rem;
           line-height: 1;
         }
-        .match-list {
+        .match-list,
+        .history-list {
           display: flex;
           flex-direction: column;
           gap: 0.85rem;
         }
-        .match-item {
+        .match-item,
+        .history-item {
           border: 1px solid var(--glass-border);
           background: rgba(255,255,255,0.025);
           border-radius: 14px;
           padding: 1rem;
         }
-        .match-item div {
+        .match-item div,
+        .history-top {
           display: flex;
           justify-content: space-between;
           gap: 1rem;
@@ -362,13 +567,13 @@ export default function SimilarityCheckerClient({ initialProvider = 'mock' }) {
         }
         .match-item span,
         .match-item p,
-        .placeholder-panel p,
-        .faq-section p {
+        .history-item p,
+        .placeholder-panel p {
           color: var(--text-secondary);
         }
         .empty-state {
           color: var(--text-secondary);
-          padding: 2rem 0;
+          padding: 1rem 0;
           text-align: center;
         }
         .flag-row {
@@ -379,51 +584,12 @@ export default function SimilarityCheckerClient({ initialProvider = 'mock' }) {
         .flag-pill {
           margin: 0;
         }
-        .review-section,
-        .faq-section {
-          border-top: 1px solid var(--glass-border);
-          padding-top: 2rem;
-        }
-        .review-table {
-          display: grid;
-          grid-template-columns: 1.2fr 1fr 1fr;
-          margin-top: 1rem;
-          border: 1px solid var(--glass-border);
-          border-radius: 16px;
-          overflow: hidden;
-        }
-        .review-table div {
-          padding: 0.9rem 1rem;
-          border-bottom: 1px solid var(--glass-border);
-          background: rgba(255,255,255,0.025);
-        }
-        .review-table div:nth-child(-n+3) {
-          background: rgba(0, 255, 163, 0.08);
-          color: var(--accent-primary);
-          font-weight: 700;
-        }
-        .faq-section {
-          display: flex;
-          flex-direction: column;
-          gap: 0.8rem;
-        }
-        .faq-section details {
-          border: 1px solid var(--glass-border);
-          border-radius: 14px;
-          padding: 1rem;
-          background: rgba(255,255,255,0.025);
-        }
-        .faq-section summary {
-          cursor: pointer;
-          font-weight: 700;
-        }
-        .faq-section p {
-          margin-top: 0.65rem;
-        }
         @media (max-width: 980px) {
           .checker-grid,
-          .result-cards,
-          .review-table {
+          .result-cards {
+            grid-template-columns: 1fr;
+          }
+          .auth-form {
             grid-template-columns: 1fr;
           }
           .hero-title {
@@ -449,11 +615,14 @@ export default function SimilarityCheckerClient({ initialProvider = 'mock' }) {
           }
           .input-panel,
           .matches-panel,
-          .placeholder-panel {
+          .placeholder-panel,
+          .auth-panel,
+          .history-panel {
             padding: 1.2rem;
           }
           .panel-heading,
-          .match-item div {
+          .match-item div,
+          .history-top {
             align-items: flex-start;
             flex-direction: column;
             gap: 0.35rem;
@@ -473,13 +642,6 @@ export default function SimilarityCheckerClient({ initialProvider = 'mock' }) {
           }
           .result-card strong {
             font-size: 1.6rem;
-          }
-          .review-table {
-            font-size: 0.88rem;
-            border-radius: 12px;
-          }
-          .review-table div {
-            padding: 0.75rem;
           }
         }
       `}</style>

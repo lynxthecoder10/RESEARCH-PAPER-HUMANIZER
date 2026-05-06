@@ -29,3 +29,11 @@ export async function GET(req) {
     return jsonResponse({ error: error.message || 'Failed to load history' }, 500);
   }
 }
+
+export async function POST() {
+  try {
+    return jsonResponse({ error: 'Method not allowed' }, 405);
+  } catch (error) {
+    return jsonResponse({ error: error.message || 'Method not allowed' }, 405);
+  }
+}
