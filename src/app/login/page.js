@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 async function parseJsonSafe(res) {
   try {
@@ -13,8 +13,7 @@ async function parseJsonSafe(res) {
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const nextPath = searchParams.get('next') || '/';
+  const [nextPath, setNextPath] = useState('/');
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,11 +23,16 @@ export default function LoginPage() {
 
   useEffect(() => {
     const checkSession = async () => {
+      const next = typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('next') || '/'
+        : '/';
+      setNextPath(next);
+
       try {
         const res = await fetch('/api/auth/me', { cache: 'no-store' });
         const data = await parseJsonSafe(res);
         if (data?.user) {
-          router.replace(nextPath);
+          router.replace(next);
           return;
         }
       } catch {}
@@ -36,7 +40,7 @@ export default function LoginPage() {
     };
 
     checkSession();
-  }, [router, nextPath]);
+  }, [router]);
 
   const submit = async () => {
     if (!email.trim() || !password) {
