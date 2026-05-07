@@ -11,6 +11,10 @@ async function parseJsonSafe(res) {
   }
 }
 
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [nextPath, setNextPath] = useState('/');
@@ -51,15 +55,21 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/auth/${mode}`, {
+      const runAuthRequest = () => fetch(`/api/auth/${mode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), password })
       });
 
+      let res = await runAuthRequest();
+      if (res.status === 502 || res.status === 504) {
+        await wait(600);
+        res = await runAuthRequest();
+      }
+
       if (!res.ok) {
         const payload = await parseJsonSafe(res);
-        throw new Error(payload.error || 'Authentication failed');
+        throw new Error(payload.error || `Authentication failed (HTTP ${res.status})`);
       }
 
       const data = await parseJsonSafe(res);
