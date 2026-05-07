@@ -1,5 +1,3 @@
-import dbConnect from '@/../lib/db.js';
-import User from '@/../models/User.js';
 import {
   createAuthToken,
   jsonResponse,
@@ -8,6 +6,7 @@ import {
   validatePassword,
   verifyPassword
 } from '@/../lib/auth.js';
+import { findUserByEmail } from '@/../lib/userStore.js';
 
 export const runtime = 'nodejs';
 
@@ -26,8 +25,7 @@ export async function POST(req) {
       return jsonResponse({ error: 'Email and password are required' }, 400);
     }
 
-    await dbConnect();
-    const user = await User.findOne({ email });
+    const user = await findUserByEmail(email);
     if (!user) {
       return jsonResponse({ error: 'Invalid credentials' }, 401);
     }
@@ -37,10 +35,10 @@ export async function POST(req) {
       return jsonResponse({ error: 'Invalid credentials' }, 401);
     }
 
-    const token = createAuthToken({ userId: String(user._id), email: user.email });
+    const token = createAuthToken({ userId: String(user.id), email: user.email });
     const response = jsonResponse({
       user: {
-        id: String(user._id),
+        id: String(user.id),
         email: user.email
       }
     });
