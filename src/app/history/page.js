@@ -15,23 +15,44 @@ function riskColor(risk) {
   return 'var(--accent-primary)';
 }
 
+function archiveDate(item) {
+  const time = new Date(item.createdAt).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
 export default function HistoryPage() {
-  const [scans, setScans] = useState([]);
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/api/plagiarism/history', { cache: 'no-store' });
-        if (!res.ok) {
-          const err = await parseJsonSafe(res);
-          throw new Error(err.error || 'Unable to load history');
+        const [scanRes, paperRes] = await Promise.all([
+          fetch('/api/plagiarism/history', { cache: 'no-store' }),
+          fetch('/api/papers', { cache: 'no-store' })
+        ]);
+
+        if (!scanRes.ok) {
+          const err = await parseJsonSafe(scanRes);
+          throw new Error(err.error || 'Unable to load scan history');
         }
-        const data = await parseJsonSafe(res);
-        setScans(Array.isArray(data.scans) ? data.scans : []);
+
+        if (!paperRes.ok) {
+          const err = await parseJsonSafe(paperRes);
+          throw new Error(err.error || 'Unable to load paper history');
+        }
+
+        const scanData = await parseJsonSafe(scanRes);
+        const paperData = await parseJsonSafe(paperRes);
+        const scans = (Array.isArray(scanData.scans) ? scanData.scans : [])
+          .map(scan => ({ ...scan, type: 'scan' }));
+        const papers = (Array.isArray(paperData.papers) ? paperData.papers : [])
+          .map(paper => ({ ...paper, type: 'paper' }));
+
+        setItems([...scans, ...papers].sort((a, b) => archiveDate(b) - archiveDate(a)));
       } catch (err) {
-        setScans([]);
+        setItems([]);
         setError(err.message || 'Unable to load history');
       } finally {
         setLoading(false);
@@ -44,41 +65,50 @@ export default function HistoryPage() {
   return (
     <div className="history-container">
       <header className="reveal-1">
-        <h1 className="hero-title">Similarity <span className="gradient-text">History</span></h1>
-        <p className="hero-subtitle">Review your account-specific similarity scan reports.</p>
+        <h1 className="hero-title">Workspace <span className="gradient-text">History</span></h1>
+        <p className="hero-subtitle">Review your saved research formatting jobs and account-specific similarity scan reports.</p>
       </header>
 
       {loading ? (
         <div className="glass-panel reveal-2" style={{ textAlign: 'center', padding: '3rem' }}>
-          <p style={{ color: 'var(--text-secondary)' }}>Loading your scan history...</p>
+          <p style={{ color: 'var(--text-secondary)' }}>Loading your workspace history...</p>
         </div>
       ) : error ? (
         <div className="glass-panel reveal-2" style={{ textAlign: 'center', padding: '3rem' }}>
           <p style={{ color: '#fecaca' }}>{error}</p>
         </div>
-      ) : scans.length === 0 ? (
+      ) : items.length === 0 ? (
         <div className="glass-panel reveal-2" style={{ textAlign: 'center', padding: '3rem' }}>
-          <h3>No scan history found</h3>
+          <h3>No history found</h3>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-            Run a similarity scan after signing in to populate this archive.
+            Format a research paper or run a similarity scan to populate this archive.
           </p>
         </div>
       ) : (
         <div className="history-list reveal-2">
-          {scans.map((scan, index) => (
+          {items.map((item, index) => (
             <article
-              key={scan.scanId || index}
+              key={`${item.type}-${item.scanId || item.id || index}`}
               className={`glass-panel reveal-${Math.min(index + 2, 4)}`}
               style={{ marginBottom: '1rem', padding: '1.25rem 1.5rem' }}
             >
               <div className="history-top">
-                <strong>{scan.similarity}% similarity</strong>
-                <span style={{ color: riskColor(scan.risk), textTransform: 'capitalize' }}>{scan.risk}</span>
+                {item.type === 'scan' ? (
+                  <>
+                    <strong>{item.similarity}% similarity</strong>
+                    <span style={{ color: riskColor(item.risk), textTransform: 'capitalize' }}>{item.risk}</span>
+                  </>
+                ) : (
+                  <>
+                    <strong>{item.title || 'Generated research paper'}</strong>
+                    <span style={{ color: 'var(--accent-primary)', textTransform: 'capitalize' }}>{item.format || 'paper'}</span>
+                  </>
+                )}
               </div>
               <p className="history-meta">
-                {scan.wordCount} words · {new Date(scan.createdAt).toLocaleString()}
+                {item.type === 'scan' ? 'Similarity scan' : item.fallback ? 'Research formatter · Fallback saved' : 'Research formatter'} · {item.wordCount || 0} words · {new Date(item.createdAt).toLocaleString()}
               </p>
-              <p className="history-preview">{scan.preview}</p>
+              <p className="history-preview">{item.preview}</p>
             </article>
           ))}
         </div>

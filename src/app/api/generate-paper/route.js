@@ -1,10 +1,60 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { authenticatedUserFromRequest } from '@/../lib/auth.js';
+import { savePaper } from '@/../lib/paperStore.js';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
 let isProcessing = false;
+
+function countWords(text) {
+  return String(text || '').trim().split(/\s+/).filter(Boolean).length;
+}
+
+function buildPreview(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+}
+
+function extractTitle(text) {
+  const lines = String(text || '').split('\n').map(line => line.trim()).filter(Boolean);
+  const titleIndex = lines.findIndex(line => /^title:?$/i.test(line));
+  if (titleIndex >= 0 && lines[titleIndex + 1]) return lines[titleIndex + 1].slice(0, 180);
+  const inlineTitle = lines.find(line => /^title:/i.test(line));
+  if (inlineTitle) return inlineTitle.replace(/^title:\s*/i, '').trim().slice(0, 180) || 'Generated research paper';
+  return lines[0]?.replace(/^#+\s*/, '').slice(0, 180) || 'Generated research paper';
+}
+
+function paperSummary(paper) {
+  if (!paper) return null;
+
+  return {
+    id: String(paper._id),
+    title: paper.title,
+    format: paper.format,
+    fallback: Boolean(paper.fallback),
+    wordCount: paper.wordCount || 0,
+    preview: paper.preview || '',
+    createdAt: paper.createdAt
+  };
+}
+
+async function persistGeneratedPaper(user, { content, formatted, format, fallback }) {
+  if (!user?.userId || !formatted) return null;
+
+  const saved = await savePaper({
+    userId: user.userId,
+    title: extractTitle(formatted),
+    format,
+    sourceContent: String(content || '').slice(0, 60000),
+    generatedContent: String(formatted || '').slice(0, 120000),
+    fallback: Boolean(fallback),
+    wordCount: countWords(formatted),
+    preview: buildPreview(formatted)
+  });
+
+  return paperSummary(saved);
+}
 
 const BODY_SECTIONS = [
   'ABSTRACT',
@@ -445,13 +495,18 @@ function buildFallback(content) {
 }
 
 export async function POST(req) {
+  const user = authenticatedUserFromRequest(req);
+  if (!user) {
+    return NextResponse.json({ status: 'error', message: 'Authentication required' }, { status: 401 });
+  }
+
   if (isProcessing) {
     return NextResponse.json({ status: 'busy', retryAfter: 2000 }, { status: 200 });
   }
 
   try {
     isProcessing = true;
-    const { content } = await req.json();
+    const { content, format = 'ieee' } = await req.json();
 
     if (!content || content.trim().length < 50) {
       return NextResponse.json({ status: 'error', message: 'Content too short. Please paste your research.' });
@@ -506,19 +561,24 @@ export async function POST(req) {
 
     // --- FALLBACK if still empty ---
     if (!formatted || formatted.trim().length < 100) {
+      const fallbackResult = buildFallback(content);
+      const paper = await persistGeneratedPaper(user, { content, formatted: fallbackResult, format, fallback: true });
       return NextResponse.json({
         status: 'success',
-        result: buildFallback(content),
-        fallback: true
+        result: fallbackResult,
+        fallback: true,
+        paper
       });
     }
 
     formatted = normalizeAcademicPaper(content, formatted);
+    const paper = await persistGeneratedPaper(user, { content, formatted, format, fallback: false });
 
     return NextResponse.json({
       status: 'success',
       result: formatted,
-      fallback: false
+      fallback: false,
+      paper
     });
 
   } catch (err) {
