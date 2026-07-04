@@ -1,1 +1,8 @@
+# Required
 rich>=13.0.0
+
+# For PDF extraction
+pdfplumber>=0.10.0
+
+# For DOCX extraction
+python-docx>=1.1.0
