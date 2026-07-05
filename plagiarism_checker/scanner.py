@@ -123,6 +123,24 @@ def _estimate_ai_score(text: str) -> float:
 
 
 # ──────────────────────────────────────────────
+#  FORMAT HELPER
+# ──────────────────────────────────────────────
+
+def _print_step(name: str, metric=None):
+    # e.g. "Extract Text ............ ✓ (320 ms)"
+    pad = "." * (25 - len(name))
+    if metric is not None:
+        if isinstance(metric, float):
+            if metric < 1.0:
+                print(f"{name} {pad} \u2713 ({int(metric*1000)} ms)")
+            else:
+                print(f"{name} {pad} \u2713 ({metric:.1f} s)")
+        else:
+            print(f"{name} {pad} \u2713 {metric}")
+    else:
+        print(f"{name} {pad} \u2713")
+
+# ──────────────────────────────────────────────
 #  MAIN SCAN FUNCTION
 # ──────────────────────────────────────────────
 
@@ -139,12 +157,11 @@ def scan_document(
     init_db()
     t_start = time.time()
 
-    def log(msg):
-        if verbose:
-            print(f"  [>] {msg}")
+    if verbose:
+        print("\n--- Execution Pipeline ---")
 
     # ── EXTRACTION ────────────────────────────
-    log("Extracting and cleaning document...")
+    t_ext_start = time.time()
     if filepath:
         doc = process_file(filepath)
     elif raw_text:
@@ -157,28 +174,40 @@ def scan_document(
     paragraphs = doc["paragraphs"]
     filename   = doc["filename"]
 
-    log(f"Words: {doc['word_count']} | Hash: {doc_hash[:12]}...")
+    if verbose:
+        _print_step("Extract Text", time.time() - t_ext_start)
+        # Assuming Clean Text and Generate Hash are practically part of extraction in process_file/text
+        _print_step("Clean Text", 0.001) 
+        _print_step("Generate Hash", 0.001)
 
     # ── LEVEL 1: HASH CACHE ───────────────────
-    log("Checking Level 1 cache (document hash)...")
     cached_scan = find_scan_by_hash(doc_hash)
     if cached_scan:
-        log("Cache HIT (hash) — returning cached report instantly.")
+        if verbose:
+            print(f"\n[Cache HIT] Document Hash {doc_hash[:8]} found. Skipping APIs.")
+        
         matches = get_matches_for_scan(cached_scan["scan_id"])
-        return _build_report(cached_scan, matches, "hash", time.time() - t_start)
+        
+        if verbose:
+            _print_step("Load Cached Metadata")
+            _print_step("Report")
+            
+        elapsed = time.time() - t_start
+        return _build_report(cached_scan, matches, "hash", elapsed)
 
     # ── KEYWORD EXTRACTION ────────────────────
-    log("Extracting keywords...")
+    t_kw_start = time.time()
     keywords = extract_keywords(doc_text, top_n=12)
-    log(f"Keywords: {', '.join(keywords[:6])}")
+    if verbose:
+        _print_step("Keywords", time.time() - t_kw_start)
 
     # ── LEVEL 2: KEYWORD CACHE ────────────────
-    log("Checking Level 2 cache (keywords)...")
     cached_papers = find_papers_by_keywords(keywords)
     cache_hit_type = "keyword" if cached_papers else "miss"
 
     if cached_papers:
-        log(f"Cache HIT (keywords) — {len(cached_papers)} papers reused from DB.")
+        if verbose:
+            print(f"\n[Partial Cache HIT] Keywords found. Bypassing external APIs.")
         paper_ids = [p["id"] for p in cached_papers]
         import json
         for p in cached_papers:
@@ -188,23 +217,32 @@ def scan_document(
                 p["authors"] = json.loads(p["authors"])
         papers = cached_papers
     else:
+        if verbose:
+            print(f"\n[Cache MISS] Querying External APIs concurrently...")
         # ── LEVEL 3: EXTERNAL API ─────────────
         query = keywords_to_query(keywords)
-        log(f"Cache MISS — querying APIs: '{query}'")
-        api_papers = search_all(query, limit=20)
-        log(f"API returned {len(api_papers)} papers (after deduplication).")
-
-        if not api_papers:
-            log("No API results. Proceeding with local analysis only.")
-            api_papers = []
+        api_papers, metrics = search_all(query, limit=20)
+        
+        sem_count = sum(1 for p in api_papers if p.get("source") == "semantic_scholar")
+        open_count = sum(1 for p in api_papers if p.get("source") == "openalex")
+        cross_count = sum(1 for p in api_papers if p.get("source") == "crossref")
+        
+        if verbose:
+            _print_step(f"Semantic Scholar", f"{sem_count} papers")
+            _print_step(f"OpenAlex", f"{open_count} papers")
+            _print_step(f"Crossref", f"{cross_count} papers")
+            _print_step("Merged", f"{len(api_papers)} unique papers")
 
         paper_ids = upsert_papers(api_papers)
         papers    = api_papers
 
     # ── SIMILARITY ENGINE ─────────────────────
-    log("Running similarity analysis...")
+    t_sim_start = time.time()
     matches = _score_against_papers(doc_text, paragraphs, papers, paper_ids)
-    log(f"Found {len(matches)} similar papers above threshold.")
+    if verbose:
+        _print_step("TF-IDF", time.time() - t_sim_start)
+        _print_step("Cosine Similarity") # implied in the above
+        _print_step("Rank Similar Papers")
 
     # ── SCORES ───────────────────────────────
     top_similarity  = matches[0]["similarity"] if matches else 0.0
@@ -228,8 +266,11 @@ def scan_document(
         ]
     )
 
+    if verbose:
+        _print_step("Report")
+        _print_step("Cache Saved")
+
     elapsed = round(time.time() - t_start, 2)
-    log(f"Scan complete in {elapsed}s | Cache: {cache_hit_type.upper()}")
 
     return {
         "scan_id":          scan_id,

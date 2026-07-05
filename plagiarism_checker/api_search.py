@@ -13,7 +13,8 @@ import json
 import urllib.request
 import urllib.parse
 import urllib.error
-from typing import Optional
+import time
+from typing import Optional, Tuple
 
 
 TIMEOUT = 8  # seconds per API call
@@ -23,20 +24,25 @@ TIMEOUT = 8  # seconds per API call
 #  ASYNC HTTP HELPER (stdlib only — no aiohttp)
 # ──────────────────────────────────────────────
 
-async def _fetch(url: str, headers: dict = None) -> Optional[dict]:
+async def _fetch(url: str, headers: dict = None, retries: int = 1) -> Optional[dict]:
     """
     Non-blocking HTTP GET using asyncio thread executor.
     Falls back gracefully on network errors.
+    Includes retry logic.
     """
     def _sync_get():
         req = urllib.request.Request(url, headers=headers or {
             "User-Agent": "AcademicSuite-PlagiarismChecker/1.0"
         })
-        try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except Exception:
-            return None
+        for attempt in range(retries + 1):
+            try:
+                with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+                    return json.loads(resp.read().decode("utf-8"))
+            except Exception:
+                if attempt == retries:
+                    return None
+                time.sleep(1) # simple backoff
+        return None
 
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, _sync_get)
@@ -46,11 +52,12 @@ async def _fetch(url: str, headers: dict = None) -> Optional[dict]:
 #  SEMANTIC SCHOLAR
 # ──────────────────────────────────────────────
 
-async def search_semantic_scholar(query: str, limit: int = 15) -> list[dict]:
+async def search_semantic_scholar(query: str, limit: int = 15) -> tuple[list[dict], float]:
     """
     Search Semantic Scholar Public API.
     Endpoint: https://api.semanticscholar.org/graph/v1/paper/search
     """
+    t_start = time.time()
     q = urllib.parse.quote(query)
     url = (
         f"https://api.semanticscholar.org/graph/v1/paper/search"
@@ -58,8 +65,9 @@ async def search_semantic_scholar(query: str, limit: int = 15) -> list[dict]:
         f"&fields=title,abstract,authors,year,externalIds,url"
     )
     data = await _fetch(url)
+    elapsed = time.time() - t_start
     if not data or "data" not in data:
-        return []
+        return [], elapsed
 
     papers = []
     for p in data["data"]:
@@ -74,18 +82,19 @@ async def search_semantic_scholar(query: str, limit: int = 15) -> list[dict]:
             "source":   "semantic_scholar",
             "keywords": [],
         })
-    return papers
+    return papers, elapsed
 
 
 # ──────────────────────────────────────────────
 #  OPENALEX
 # ──────────────────────────────────────────────
 
-async def search_openalex(query: str, limit: int = 15) -> list[dict]:
+async def search_openalex(query: str, limit: int = 15) -> tuple[list[dict], float]:
     """
     Search OpenAlex API.
     Endpoint: https://api.openalex.org/works
     """
+    t_start = time.time()
     q = urllib.parse.quote(query)
     url = (
         f"https://api.openalex.org/works"
@@ -93,8 +102,9 @@ async def search_openalex(query: str, limit: int = 15) -> list[dict]:
         f"&mailto=academic.suite@example.com"
     )
     data = await _fetch(url)
+    elapsed = time.time() - t_start
     if not data or "results" not in data:
-        return []
+        return [], elapsed
 
     papers = []
     for p in data["results"]:
@@ -123,7 +133,7 @@ async def search_openalex(query: str, limit: int = 15) -> list[dict]:
             "source":   "openalex",
             "keywords": concepts,
         })
-    return papers
+    return papers, elapsed
 
 
 def _reconstruct_abstract(inverted_index: dict) -> str:
@@ -142,11 +152,12 @@ def _reconstruct_abstract(inverted_index: dict) -> str:
 #  CROSSREF
 # ──────────────────────────────────────────────
 
-async def search_crossref(query: str, limit: int = 15) -> list[dict]:
+async def search_crossref(query: str, limit: int = 15) -> tuple[list[dict], float]:
     """
     Search Crossref REST API.
     Endpoint: https://api.crossref.org/works
     """
+    t_start = time.time()
     q = urllib.parse.quote(query)
     url = (
         f"https://api.crossref.org/works"
@@ -155,8 +166,9 @@ async def search_crossref(query: str, limit: int = 15) -> list[dict]:
         f"&mailto=academic.suite@example.com"
     )
     data = await _fetch(url)
+    elapsed = time.time() - t_start
     if not data or "message" not in data:
-        return []
+        return [], elapsed
 
     papers = []
     for p in (data["message"].get("items") or []):
@@ -187,14 +199,14 @@ async def search_crossref(query: str, limit: int = 15) -> list[dict]:
             "source":   "crossref",
             "keywords": [],
         })
-    return papers
+    return papers, elapsed
 
 
 # ──────────────────────────────────────────────
 #  CONCURRENT SEARCH ORCHESTRATOR
 # ──────────────────────────────────────────────
 
-async def _gather_search(query: str, limit: int) -> list[dict]:
+async def _gather_search(query: str, limit: int) -> tuple[list[dict], dict]:
     """Run all 3 APIs concurrently, merge and deduplicate by DOI."""
     results = await asyncio.gather(
         search_semantic_scholar(query, limit),
@@ -204,9 +216,23 @@ async def _gather_search(query: str, limit: int) -> list[dict]:
     )
 
     merged: list[dict] = []
-    for r in results:
-        if isinstance(r, list):
-            merged.extend(r)
+    metrics = {
+        "semantic_scholar": 0.0,
+        "openalex": 0.0,
+        "crossref": 0.0
+    }
+    
+    if not isinstance(results[0], Exception):
+        merged.extend(results[0][0])
+        metrics["semantic_scholar"] = results[0][1]
+    
+    if not isinstance(results[1], Exception):
+        merged.extend(results[1][0])
+        metrics["openalex"] = results[1][1]
+        
+    if not isinstance(results[2], Exception):
+        merged.extend(results[2][0])
+        metrics["crossref"] = results[2][1]
 
     # DOI deduplication — keep first occurrence
     seen_dois: set[str] = set()
@@ -219,10 +245,10 @@ async def _gather_search(query: str, limit: int) -> list[dict]:
             seen_dois.add(doi)
         deduped.append(p)
 
-    return deduped
+    return deduped, metrics
 
 
-def search_all(query: str, limit: int = 15) -> list[dict]:
+def search_all(query: str, limit: int = 15) -> tuple[list[dict], dict]:
     """
     Synchronous wrapper for concurrent API search.
     Safe to call from non-async contexts.
@@ -238,4 +264,4 @@ def search_all(query: str, limit: int = 15) -> list[dict]:
         else:
             return loop.run_until_complete(_gather_search(query, limit))
     except Exception:
-        return []
+        return [], {}
