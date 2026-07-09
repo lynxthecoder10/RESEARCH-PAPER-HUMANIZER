@@ -1,0 +1,26 @@
+version: "3.9"
+services:
+  app:
+    build: .
+    container_name: academic_suite_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=sqlite+aiosqlite:///./dev.db
+      - JWT_AUDIENCE=authenticated
+    depends_on:
+      - redis
+    volumes:
+      - .:/app
+  redis:
+    image: redis:7-alpine
+    container_name: academic_suite_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+volumes:
+  redis_data:
