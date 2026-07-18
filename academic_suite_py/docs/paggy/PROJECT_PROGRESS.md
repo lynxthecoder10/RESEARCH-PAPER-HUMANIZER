@@ -80,7 +80,7 @@
 
 ### Hour 4 — API and Frontend Integration
 - **Planned tasks**: Combined scan endpoint and Next.js routes proxying.
-- **Completed tasks**: None.
+- **Completed tasks**: FastAPI Orchestration Endpoint, Next.js Proxy Integration, Client UI Update for Structured Reports, History UI, PWA configuration.
 - **Next-hour priority**: Wire React UI to FastAPI.
 
 ### Hour 5 — Testing, Demo, and Stabilization

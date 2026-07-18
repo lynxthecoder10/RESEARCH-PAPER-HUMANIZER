@@ -2,21 +2,22 @@ import { authenticatedUserFromRequest, jsonResponse } from '@/../lib/auth.js';
 
 export const runtime = 'nodejs';
 
-export async function GET(req) {
+export async function DELETE(req, context) {
   try {
     const user = authenticatedUserFromRequest(req);
     if (!user) {
       return jsonResponse({ error: 'Authentication required' }, 401);
     }
 
+    const { scanId } = await context.params;
     const backendUrl = process.env.PAGGY_BACKEND_URL || 'http://localhost:8000';
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000); // 10s
 
     const authHeader = req.headers.get('Authorization') || `Bearer mock-token-${user.userId}`;
 
-    const response = await fetch(`${backendUrl}/api/v1/history`, {
-      method: 'GET',
+    const response = await fetch(`${backendUrl}/api/v1/history/${scanId}`, {
+      method: 'DELETE',
       headers: {
         'Authorization': authHeader,
       },
@@ -32,16 +33,11 @@ export async function GET(req) {
       return jsonResponse({ error: 'Invalid response from analysis engine' }, 502);
     }
 
-    // Backend returns { history: [...] }
-    return Response.json({ scans: data.history || [] }, { status: response.status });
+    return Response.json(data, { status: response.status });
   } catch (error) {
     if (error.name === 'AbortError') {
       return jsonResponse({ error: 'Request timed out' }, 504);
     }
-    return jsonResponse({ error: error.message || 'Failed to load history' }, 500);
+    return jsonResponse({ error: error.message || 'Failed to delete history' }, 500);
   }
-}
-
-export async function POST() {
-  return jsonResponse({ error: 'Method not allowed' }, 405);
 }
