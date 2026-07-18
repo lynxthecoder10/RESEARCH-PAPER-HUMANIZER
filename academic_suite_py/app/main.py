@@ -1,6 +1,7 @@
 from datetime import datetime, timezone, timedelta
 
 from typing import Optional
+from sqlalchemy import select
 from fastapi import FastAPI, Depends, HTTPException, Request, File, UploadFile, Form
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -15,11 +16,8 @@ from app.services.extraction import (
 )
 from app.services.cleaning import clean_and_normalize_text
 from app.services.hashing import generate_document_hash
-from app.services.keywords import extract_keywords, generate_search_queries
-from app.services.offline_source_provider import OfflineSourceProvider
-from app.services.source_deduplication import deduplicate_sources
-from app.services.search_cache import SearchCache
 from app.db import (
+    AsyncSessionLocal,
     initialize_database,
     get_scan_by_hash,
     create_scan,
@@ -29,7 +27,17 @@ from app.db import (
     save_scan_matches,
     save_scan_report,
     get_scan_report,
+    delete_scan_report,
+    Scan,
+    ScanReport,
 )
+from app.services.extraction import (
+    validate_input_file,
+)
+from app.services.keywords import extract_keywords, generate_search_queries
+from app.services.offline_source_provider import OfflineSourceProvider
+from app.services.source_deduplication import deduplicate_sources
+from app.services.search_cache import SearchCache
 from app.services.paragraph_matching import match_paragraphs
 from app.services.ai_risk import estimate_ai_risk
 from app.services.report_generator import generate_report
@@ -62,8 +70,8 @@ async def protected_endpoint(
 
 # Health check
 @app.get("/health")
-async def health_check():
-    return {"status": "ok"}
+async def health_check_main():
+    return {"status": "ok", "service": "academic_suite_backend"}
 
 
 # Ingestion / Extraction Endpoint
@@ -344,6 +352,251 @@ async def search_sources_endpoint(
             },
         )
 
+
+# ------------------------------------------------------------------
+# Orchestration Endpoint (Hour 4)
+# ------------------------------------------------------------------
+
+@app.post("/api/v1/scans")
+async def create_scan_endpoint(
+    request: Request,
+    file: Optional[UploadFile] = File(None),
+    pasted_text: Optional[str] = Form(None),
+    payload: dict = Depends(verify_jwt_token),
+):
+    try:
+        if not file and not pasted_text:
+            return JSONResponse(
+                status_code=400,
+                content={"error": {"code": "NO_INPUT", "message": "Must provide either 'file' or 'pasted_text'."}}
+            )
+
+        # 1. Document Ingestion
+        try:
+            if file:
+                file_bytes = await file.read()
+                validate_input_file(file.filename, file_bytes)
+                extracted_text = extract_document(file.filename, file_bytes)
+                filename = file.filename
+                file_type = file.filename.split(".")[-1].lower() if "." in file.filename else "unknown"
+            else:
+                extracted_text = extract_pasted_text(pasted_text)
+                filename = "pasted_text.txt"
+                file_type = "txt"
+        except IngestionError as e:
+            return JSONResponse(
+                status_code=400,
+                content={"error": {"code": "INGESTION_ERROR", "message": str(e), "details": {}}}
+            )
+
+        cleaned_text = clean_and_normalize_text(extracted_text)
+        document_hash = generate_document_hash(cleaned_text)
+        word_count = len(cleaned_text.split())
+        character_count = len(cleaned_text)
+
+        # 2. Cache Lookup
+        redis_url = None
+        try:
+            if settings.REDIS_URL and "localhost" not in settings.REDIS_URL:
+                redis_url = settings.REDIS_URL
+        except Exception:
+            pass
+        cache = SearchCache(redis_url=redis_url)
+        report_cache_key = cache.make_key(f"report:{settings.ANALYSIS_VERSION}", document_hash)
+        
+        cached_report = await cache.get(report_cache_key)
+        if cached_report:
+            # We must still create a new scan record for history
+            scan_id = await create_scan(
+                user_id=payload.get("sub", "anonymous"),
+                document_hash=document_hash,
+                filename=filename,
+                file_type=file_type,
+                raw_text=extracted_text,
+                cleaned_text=cleaned_text,
+                word_count=word_count,
+                character_count=character_count,
+            )
+            # Duplicate the report for this new scan_id
+            report_data = cached_report.get("report", cached_report)
+            report_data["scan_id"] = scan_id
+            
+            await save_scan_report(
+                scan_id=scan_id,
+                similarity_percentage=report_data["similarity_percentage"],
+                originality_percentage=report_data["originality_percentage"],
+                similarity_risk_level=report_data["similarity_risk_level"],
+                ai_risk_score=report_data["ai_content_risk"]["risk_score"],
+                ai_risk_level=report_data["ai_content_risk"]["risk_level"],
+                report_json=report_data
+            )
+            return {
+                "scan_id": scan_id,
+                "cache_hit": True,
+                "processing_mode": "offline",
+                "document": {
+                    "filename": filename,
+                    "file_type": file_type,
+                    "word_count": word_count,
+                    "character_count": character_count,
+                    "document_hash": document_hash
+                },
+                "report": report_data
+            }
+
+        # 3. Create Scan Record
+        scan_id = await create_scan(
+            user_id=payload.get("sub", "anonymous"),
+            document_hash=document_hash,
+            filename=filename,
+            file_type=file_type,
+            raw_text=extracted_text,
+            cleaned_text=cleaned_text,
+            word_count=word_count,
+            character_count=character_count,
+        )
+
+        # 4. Keyword Extraction & Source Retrieval
+        keywords = extract_keywords(cleaned_text)
+        provider = OfflineSourceProvider()
+        raw_sources = provider.search(keywords)
+        unique_sources = deduplicate_sources(raw_sources)
+        
+        # 5. Source Persistence
+        sources = []
+        for src in unique_sources:
+            await create_scan_source(
+                scan_id=scan_id,
+                provider=src.get("provider", "demo_corpus"),
+                provider_id=src.get("provider_id", ""),
+                title=src.get("title", ""),
+                abstract=src.get("abstract"),
+                authors=src.get("authors"),
+                doi=src.get("doi"),
+                publication_year=src.get("publication_year"),
+                venue=src.get("venue"),
+                source_url=src.get("url"),
+                citation_count=src.get("citation_count"),
+            )
+            sources.append(src)
+
+        # 6 & 7. Paragraph Matching
+        matched_paragraphs = match_paragraphs(cleaned_text, sources)
+
+        # 8. AI Content Risk Estimate
+        ai_risk_data = estimate_ai_risk(cleaned_text)
+
+        # 9. Report Generation
+        search_mode = settings.SCHOLARLY_SEARCH_MODE
+        report = generate_report(
+            scan_id=scan_id,
+            document_word_count=word_count,
+            matched_paragraphs=matched_paragraphs,
+            ai_risk_data=ai_risk_data,
+            sources=sources,
+            search_mode=search_mode,
+            cache_stats=cache.stats
+        )
+
+        # 10. History/Report Persistence
+        matches_to_save = []
+        for m in matched_paragraphs:
+            matches_to_save.append({
+                "scan_id": scan_id,
+                "source_id": m["source_id"],
+                "paragraph_index": m["paragraph_index"],
+                "document_excerpt": m["document_excerpt"],
+                "matched_excerpt": m["matched_excerpt"],
+                "similarity_score": m["similarity_score"]
+            })
+        await save_scan_matches(matches_to_save)
+        
+        await save_scan_report(
+            scan_id=scan_id,
+            similarity_percentage=report["similarity_percentage"],
+            originality_percentage=report["originality_percentage"],
+            similarity_risk_level=report["similarity_risk_level"],
+            ai_risk_score=ai_risk_data["risk_score"],
+            ai_risk_level=ai_risk_data["risk_level"],
+            report_json=report
+        )
+        
+        # Cache the report
+        try:
+            await cache.set(report_cache_key, {"report": report}, ttl=settings.REPORT_CACHE_TTL_SECONDS)
+        except Exception:
+            pass
+
+        return {
+            "scan_id": scan_id,
+            "cache_hit": False,
+            "processing_mode": "offline",
+            "document": {
+                "filename": filename,
+                "file_type": file_type,
+                "word_count": word_count,
+                "character_count": character_count,
+                "document_hash": document_hash
+            },
+            "report": report
+        }
+    except Exception:
+        logger.exception("Orchestration endpoint failed.")
+        return JSONResponse(
+            status_code=500,
+            content={"error": {"code": "INTERNAL_SERVER_ERROR", "message": "An unexpected error occurred.", "details": {}}}
+        )
+
+# ------------------------------------------------------------------
+# History Endpoint (Hour 4)
+# ------------------------------------------------------------------
+
+@app.get("/api/v1/history")
+async def get_history_endpoint(
+    request: Request,
+    payload: dict = Depends(verify_jwt_token),
+):
+    user_id = payload.get("sub", "anonymous")
+    async with AsyncSessionLocal() as session:
+        # Join Scan and ScanReport to get history
+        stmt = (
+            select(Scan, ScanReport)
+            .join(ScanReport, Scan.id == ScanReport.scan_id)
+            .where(Scan.user_id == user_id)
+            .order_by(Scan.created_at.desc())
+        )
+        result = await session.execute(stmt)
+        rows = result.all()
+        
+        history = []
+        for scan, report in rows:
+            history.append({
+                "scan_id": scan.id,
+                "filename": scan.filename,
+                "similarity_percentage": report.similarity_percentage,
+                "originality_percentage": report.originality_percentage,
+                "ai_risk_level": report.ai_risk_level,
+                "created_at": scan.created_at.isoformat(),
+                "processing_mode": "offline"
+            })
+            
+        return {"history": history}
+
+# ------------------------------------------------------------------
+# DELETE History Endpoint
+# ------------------------------------------------------------------
+@app.delete("/api/v1/history/{scan_id}")
+async def delete_history_endpoint(
+    scan_id: str,
+    request: Request,
+    payload: dict = Depends(verify_jwt_token),
+):
+    scan = await get_scan_by_id(scan_id)
+    if not scan or scan.user_id != payload.get("sub", "anonymous"):
+        raise HTTPException(status_code=404, detail="Scan not found.")
+        
+    await delete_scan_report(scan_id)
+    return {"status": "success", "message": "History deleted."}
 
 # ------------------------------------------------------------------
 # Analysis Endpoint
