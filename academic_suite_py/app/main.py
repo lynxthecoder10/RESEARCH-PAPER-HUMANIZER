@@ -25,7 +25,14 @@ from app.db import (
     create_scan,
     get_scan_by_id,
     create_scan_source,
+    get_sources_by_scan_id,
+    save_scan_matches,
+    save_scan_report,
+    get_scan_report,
 )
+from app.services.paragraph_matching import match_paragraphs
+from app.services.ai_risk import estimate_ai_risk
+from app.services.report_generator import generate_report
 
 app = FastAPI(title="Academic Suite Backend", version="0.1.0")
 
@@ -336,3 +343,166 @@ async def search_sources_endpoint(
                 }
             },
         )
+
+
+# ------------------------------------------------------------------
+# Analysis Endpoint
+# ------------------------------------------------------------------
+
+
+@app.post("/api/v1/scans/{scan_id}/analyze")
+async def analyze_scan_endpoint(
+    scan_id: str,
+    request: Request,
+    payload: dict = Depends(verify_jwt_token),
+):
+    scan = await get_scan_by_id(scan_id)
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found.")
+
+    if not scan.cleaned_text:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": {
+                    "code": "NO_EXTRACTABLE_TEXT",
+                    "message": "The document contains no analysable text.",
+                    "details": {},
+                }
+            },
+        )
+
+    # Check for a valid cached report
+    redis_url = None
+    try:
+        if settings.REDIS_URL and "localhost" not in settings.REDIS_URL:
+            redis_url = settings.REDIS_URL
+    except Exception:
+        logger.warning("Failed to initialize Redis URL, falling back to default cache.")
+
+    cache = SearchCache(redis_url=redis_url)
+    report_cache_key = cache.make_key(
+        f"report:{settings.ANALYSIS_VERSION}", scan.document_hash
+    )
+
+    cached_report = await cache.get(report_cache_key)
+    if cached_report:
+        # Re-attach the current scan_id in case it's a different upload of the same file
+        cached_report["scan_id"] = scan_id
+        if "report" in cached_report:
+            cached_report["report"]["scan_id"] = scan_id
+        return {
+            "scan_id": scan_id,
+            "cache_hit": True,
+            "report": cached_report.get("report", cached_report),
+        }
+
+    # Retrieve sources
+    db_sources = await get_sources_by_scan_id(scan_id)
+    sources = []
+
+    if not db_sources:
+        # Run offline source retrieval
+        keywords = extract_keywords(scan.cleaned_text)
+        provider = OfflineSourceProvider()
+        raw_sources = provider.search(keywords)
+        unique_sources = deduplicate_sources(raw_sources)
+        for src in unique_sources:
+            await create_scan_source(
+                scan_id=scan_id,
+                provider=src.get("provider", "demo_corpus"),
+                provider_id=src.get("provider_id", ""),
+                title=src.get("title", ""),
+                abstract=src.get("abstract"),
+                authors=src.get("authors"),
+                doi=src.get("doi"),
+                publication_year=src.get("publication_year"),
+                venue=src.get("venue"),
+                source_url=src.get("url"),
+                citation_count=src.get("citation_count"),
+            )
+            sources.append(src)
+    else:
+        for s in db_sources:
+            sources.append(
+                {
+                    "provider_id": s.provider_id,
+                    "title": s.title,
+                    "abstract": s.abstract,
+                }
+            )
+
+    # Run paragraph matching (which computes TF-IDF similarity internally for paragraphs)
+    matched_paragraphs = match_paragraphs(scan.cleaned_text, sources)
+
+    # Run AI-content risk estimation
+    ai_risk_data = estimate_ai_risk(scan.cleaned_text)
+
+    # Generate combined report
+    search_mode = settings.SCHOLARLY_SEARCH_MODE
+    report = generate_report(
+        scan_id=scan_id,
+        document_word_count=scan.word_count,
+        matched_paragraphs=matched_paragraphs,
+        ai_risk_data=ai_risk_data,
+        sources=sources,
+        search_mode=search_mode,
+        cache_stats=cache.stats,
+    )
+
+    # Persist matches
+    matches_to_save = []
+    for m in matched_paragraphs:
+        matches_to_save.append(
+            {
+                "scan_id": scan_id,
+                "source_id": m["source_id"],
+                "paragraph_index": m["paragraph_index"],
+                "document_excerpt": m["document_excerpt"],
+                "matched_excerpt": m["matched_excerpt"],
+                "similarity_score": m["similarity_score"],
+            }
+        )
+    await save_scan_matches(matches_to_save)
+
+    # Persist report
+    await save_scan_report(
+        scan_id=scan_id,
+        similarity_percentage=report["similarity_percentage"],
+        originality_percentage=report["originality_percentage"],
+        similarity_risk_level=report["similarity_risk_level"],
+        ai_risk_score=ai_risk_data["risk_score"],
+        ai_risk_level=ai_risk_data["risk_level"],
+        report_json=report,
+    )
+
+    # Cache the report
+    try:
+        await cache.set(
+            report_cache_key, {"report": report}, ttl=settings.REPORT_CACHE_TTL_SECONDS
+        )
+    except Exception as exc:
+        logger.warning("Failed to cache report: %s", exc)
+
+    return {"scan_id": scan_id, "cache_hit": False, "report": report}
+
+
+@app.get("/api/v1/scans/{scan_id}/report")
+async def get_scan_report_endpoint(
+    scan_id: str,
+    request: Request,
+    payload: dict = Depends(verify_jwt_token),
+):
+    scan = await get_scan_by_id(scan_id)
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found.")
+
+    report_record = await get_scan_report(scan_id)
+    if not report_record:
+        raise HTTPException(status_code=404, detail="Report not found for this scan.")
+
+    return {
+        "scan_id": scan_id,
+        "cache_hit": True,  # It's from DB
+        "report": report_record.report_json,
+    }

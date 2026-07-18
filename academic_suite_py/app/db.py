@@ -1,11 +1,21 @@
 import uuid
 import datetime
 from typing import List, Optional
-from sqlalchemy import Column, String, Integer, DateTime, Text, ForeignKey
+from sqlalchemy import (
+    Column,
+    String,
+    Integer,
+    DateTime,
+    Text,
+    ForeignKey,
+    JSON,
+    Float,
+    delete,
+)
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-import json
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.future import select
+import json
 from app.config import settings
 
 Base = declarative_base()
@@ -84,6 +94,50 @@ class ScanSource(Base):
     scan = relationship("Scan", backref="sources")
 
 
+class ScanMatch(Base):
+    __tablename__ = "scan_matches"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    scan_id = Column(
+        String, ForeignKey("scans.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    source_id = Column(String, nullable=False, index=True)
+    paragraph_index = Column(Integer, nullable=False)
+    document_excerpt = Column(Text, nullable=False)
+    matched_excerpt = Column(Text, nullable=False)
+    similarity_score = Column(Float, nullable=False)
+    created_at = Column(
+        DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc)
+    )
+
+
+class ScanReport(Base):
+    __tablename__ = "scan_reports"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    scan_id = Column(
+        String,
+        ForeignKey("scans.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        unique=True,
+    )
+    similarity_percentage = Column(Float, nullable=False)
+    originality_percentage = Column(Float, nullable=False)
+    similarity_risk_level = Column(String, nullable=False)
+    ai_risk_score = Column(Float, nullable=False)
+    ai_risk_level = Column(String, nullable=False)
+    report_json = Column(JSON, nullable=False)
+    created_at = Column(
+        DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc)
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+        onupdate=lambda: datetime.datetime.now(datetime.timezone.utc),
+    )
+
+
 # New model: ApiCache
 class ApiCache(Base):
     __tablename__ = "api_cache"
@@ -147,6 +201,78 @@ async def get_sources_by_scan_id(scan_id: str) -> List[ScanSource]:
             select(ScanSource).where(ScanSource.scan_id == scan_id)
         )
         return list(result.scalars().all())
+
+
+async def save_scan_matches(matches: List[dict]) -> None:
+    if not matches:
+        return
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            for match in matches:
+                session.add(
+                    ScanMatch(
+                        scan_id=match["scan_id"],
+                        source_id=match["source_id"],
+                        paragraph_index=match["paragraph_index"],
+                        document_excerpt=match["document_excerpt"],
+                        matched_excerpt=match["matched_excerpt"],
+                        similarity_score=match["similarity_score"],
+                    )
+                )
+
+
+async def get_scan_matches(scan_id: str) -> List[ScanMatch]:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(ScanMatch)
+            .where(ScanMatch.scan_id == scan_id)
+            .order_by(ScanMatch.paragraph_index)
+        )
+        return list(result.scalars().all())
+
+
+async def save_scan_report(
+    scan_id: str,
+    similarity_percentage: float,
+    originality_percentage: float,
+    similarity_risk_level: str,
+    ai_risk_score: float,
+    ai_risk_level: str,
+    report_json: dict,
+) -> ScanReport:
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            await session.execute(
+                delete(ScanReport).where(ScanReport.scan_id == scan_id)
+            )
+            report = ScanReport(
+                scan_id=scan_id,
+                similarity_percentage=similarity_percentage,
+                originality_percentage=originality_percentage,
+                similarity_risk_level=similarity_risk_level,
+                ai_risk_score=ai_risk_score,
+                ai_risk_level=ai_risk_level,
+                report_json=report_json,
+            )
+            session.add(report)
+        await session.refresh(report)
+        return report
+
+
+async def get_scan_report(scan_id: str) -> Optional[ScanReport]:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(ScanReport).where(ScanReport.scan_id == scan_id)
+        )
+        return result.scalars().first()
+
+
+async def delete_scan_report(scan_id: str) -> None:
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            await session.execute(
+                delete(ScanReport).where(ScanReport.scan_id == scan_id)
+            )
 
 
 # Helper functions for ApiCache

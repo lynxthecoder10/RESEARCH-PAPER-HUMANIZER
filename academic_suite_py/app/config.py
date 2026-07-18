@@ -45,5 +45,18 @@ class Settings(BaseSettings):
         str(_PROJECT_ROOT / "data" / "demo_scholarly_sources.json"),
     )
 
+    # Similarity thresholds
+    SIMILARITY_MATCH_THRESHOLD: float = float(
+        os.getenv("SIMILARITY_MATCH_THRESHOLD", "0.30")
+    )
+    PARAGRAPH_MIN_WORDS: int = int(os.getenv("PARAGRAPH_MIN_WORDS", "20"))
+    MAX_MATCHED_PARAGRAPHS: int = int(os.getenv("MAX_MATCHED_PARAGRAPHS", "20"))
+
+    # Report caching
+    ANALYSIS_VERSION: str = os.getenv("ANALYSIS_VERSION", "v1")
+    REPORT_CACHE_TTL_SECONDS: int = int(
+        os.getenv("REPORT_CACHE_TTL_SECONDS", str(7 * 24 * 60 * 60))
+    )
+
 
 settings = Settings()
