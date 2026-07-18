@@ -1,23 +1,6 @@
-import { findScan } from '@/../lib/plagiarismScanStore.js';
 import { authenticatedUserFromRequest, jsonResponse } from '@/../lib/auth.js';
 
 export const runtime = 'nodejs';
-
-function scanToResponse(scan) {
-  return {
-    scanId: scan.scanId,
-    status: scan.status,
-    report: {
-      similarity: scan.similarity,
-      originality: scan.originality,
-      risk: scan.risk,
-      wordCount: scan.wordCount,
-      matches: scan.matches || [],
-      flags: scan.flags || [],
-      provider: scan.provider
-    }
-  };
-}
 
 export async function GET(req, context) {
   try {
@@ -27,21 +10,42 @@ export async function GET(req, context) {
     }
 
     const { scanId } = await context.params;
-    const scan = await findScan(scanId, user.userId);
-    if (!scan) {
-      return jsonResponse({ error: 'Scan not found' }, 404);
+    const backendUrl = process.env.PAGGY_BACKEND_URL || 'http://localhost:8000';
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000); // 10s
+
+    const authHeader = req.headers.get('Authorization') || `Bearer mock-token-${user.userId}`;
+
+    const response = await fetch(`${backendUrl}/api/v1/scans/${scanId}/report`, {
+      method: 'GET',
+      headers: {
+        'Authorization': authHeader,
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      return jsonResponse({ error: 'Invalid response from analysis engine' }, 502);
     }
 
-    return jsonResponse(scanToResponse(scan));
+    // The backend returns { scan_id, cache_hit, report: {...} }. 
+    // We map it to { scanId, status, report: {...} } to match frontend expectations if needed,
+    // or we just return it exactly. The frontend will be adapted to read this structure.
+    return Response.json(data, { status: response.status });
   } catch (error) {
-    return jsonResponse({ error: error.message || 'Failed to fetch scan' }, error.status || 500);
+    if (error.name === 'AbortError') {
+      return jsonResponse({ error: 'Request timed out' }, 504);
+    }
+    return jsonResponse({ error: error.message || 'Failed to fetch scan' }, 500);
   }
 }
 
 export async function POST() {
-  try {
-    return jsonResponse({ error: 'Method not allowed' }, 405);
-  } catch (error) {
-    return jsonResponse({ error: error.message || 'Method not allowed' }, 405);
-  }
+  return jsonResponse({ error: 'Method not allowed' }, 405);
 }
