@@ -399,8 +399,8 @@ async def create_scan_endpoint(
         try:
             if settings.REDIS_URL and "localhost" not in settings.REDIS_URL:
                 redis_url = settings.REDIS_URL
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Cache initialization failed, falling back: {e}")
         cache = SearchCache(redis_url=redis_url)
         report_cache_key = cache.make_key(f"report:{settings.ANALYSIS_VERSION}", document_hash)
         
@@ -519,13 +519,11 @@ async def create_scan_endpoint(
             ai_risk_score=ai_risk_data["risk_score"],
             ai_risk_level=ai_risk_data["risk_level"],
             report_json=report
-        )
-        
         # Cache the report
         try:
             await cache.set(report_cache_key, {"report": report}, ttl=settings.REPORT_CACHE_TTL_SECONDS)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to set cache for scan report: {e}")
 
         return {
             "scan_id": scan_id,
