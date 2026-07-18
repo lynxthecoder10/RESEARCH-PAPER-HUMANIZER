@@ -19,9 +19,14 @@ def normalize_doi(doi: Optional[str]) -> Optional[str]:
         return None
     normalized = doi.strip().lower()
     # Strip common URL prefixes
-    for prefix in ("https://doi.org/", "http://doi.org/", "http://dx.doi.org/", "https://dx.doi.org/"):
+    for prefix in (
+        "https://doi.org/",
+        "http://doi.org/",
+        "http://dx.doi.org/",
+        "https://dx.doi.org/",
+    ):
         if normalized.startswith(prefix):
-            normalized = normalized[len(prefix):]
+            normalized = normalized[len(prefix) :]
             break
     return normalized if normalized else None
 

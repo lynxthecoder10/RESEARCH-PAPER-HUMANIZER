@@ -2,15 +2,15 @@ import unicodedata
 import re
 from typing import Dict, Any
 
+
 def clean_and_normalize_text(text: str) -> Dict[str, Any]:
-    """Clean and normalize academic text, preserving paragraph structures and citations.
-    """
+    """Clean and normalize academic text, preserving paragraph structures and citations."""
     if not text:
         return {
             "cleaned_text": "",
             "character_count": 0,
             "word_count": 0,
-            "paragraph_count": 0
+            "paragraph_count": 0,
         }
 
     # 1. Normalize Unicode (NFKC handles characters, accents, fractions, compatibility characters)
@@ -47,7 +47,7 @@ def clean_and_normalize_text(text: str) -> Dict[str, Any]:
     # Calculate metrics
     char_count = len(cleaned_text)
     word_count = len(cleaned_text.split())
-    
+
     # Paragraph count based on double newlines
     paragraphs = [p for p in cleaned_text.split("\n\n") if p.strip()]
     paragraph_count = len(paragraphs)
@@ -56,5 +56,5 @@ def clean_and_normalize_text(text: str) -> Dict[str, Any]:
         "cleaned_text": cleaned_text,
         "character_count": char_count,
         "word_count": word_count,
-        "paragraph_count": paragraph_count
+        "paragraph_count": paragraph_count,
     }

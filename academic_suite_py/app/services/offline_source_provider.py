@@ -27,6 +27,7 @@ class OfflineSourceProvider(SourceProvider):
         """
         if corpus_path is None:
             from app.config import settings
+
             corpus_path = settings.OFFLINE_SOURCE_PATH
 
         self._corpus_path = Path(corpus_path)
@@ -43,17 +44,15 @@ class OfflineSourceProvider(SourceProvider):
 
         if not self._corpus_path.exists():
             raise FileNotFoundError(
-                f"Offline corpus not found at configured path. "
-                f"Ensure OFFLINE_SOURCE_PATH is set correctly."
+                "Offline corpus not found at configured path. "
+                "Ensure OFFLINE_SOURCE_PATH is set correctly."
             )
 
         try:
             raw = self._corpus_path.read_text(encoding="utf-8")
             data = json.loads(raw)
         except json.JSONDecodeError as exc:
-            raise ValueError(
-                f"Offline corpus contains invalid JSON: {exc}"
-            ) from exc
+            raise ValueError(f"Offline corpus contains invalid JSON: {exc}") from exc
 
         # Validate minimal required fields and skip malformed records
         valid: List[Dict] = []

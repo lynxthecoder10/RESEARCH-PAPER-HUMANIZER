@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict
 
+
 class SourceProvider(ABC):
     """Abstract base class for source providers.
 

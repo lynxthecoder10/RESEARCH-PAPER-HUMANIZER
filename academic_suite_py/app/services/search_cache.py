@@ -4,7 +4,6 @@ Uses ``SQLiteCache`` for development and ``RedisCache`` for production.
 Cache failures are logged as warnings and never crash the request.
 """
 
-import json
 import hashlib
 import logging
 from typing import Any, Optional
@@ -22,11 +21,14 @@ class SearchCache:
     wrapped in try/except so cache failures never crash the calling request.
     """
 
-    def __init__(self, redis_url: Optional[str] = None, sqlite_path: str = "./cache.db"):
+    def __init__(
+        self, redis_url: Optional[str] = None, sqlite_path: str = "./cache.db"
+    ):
         self._redis_cache = None
         if redis_url:
             try:
                 from cache.redis_cache import RedisCache
+
                 self._redis_cache = RedisCache(redis_url)
             except Exception as exc:
                 logger.warning("Redis cache initialization failed: %s", exc)

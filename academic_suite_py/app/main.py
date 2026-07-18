@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime, timezone, timedelta
 
 from typing import Optional
@@ -9,7 +8,11 @@ from app.config import settings
 from app.logger import logger
 from middleware.auth_middleware import verify_jwt_token
 from middleware.exception_handler import register_exception_handlers
-from app.services.extraction import extract_document, extract_pasted_text, IngestionError
+from app.services.extraction import (
+    extract_document,
+    extract_pasted_text,
+    IngestionError,
+)
 from app.services.cleaning import clean_and_normalize_text
 from app.services.hashing import generate_document_hash
 from app.services.keywords import extract_keywords, generate_search_queries
@@ -17,14 +20,18 @@ from app.services.offline_source_provider import OfflineSourceProvider
 from app.services.source_deduplication import deduplicate_sources
 from app.services.search_cache import SearchCache
 from app.db import (
-    initialize_database, get_scan_by_hash, create_scan, get_scan_by_id,
-    create_scan_source, get_sources_by_scan_id,
+    initialize_database,
+    get_scan_by_hash,
+    create_scan,
+    get_scan_by_id,
+    create_scan_source,
 )
 
 app = FastAPI(title="Academic Suite Backend", version="0.1.0")
 
 # Register global exception handlers
 register_exception_handlers(app)
+
 
 @app.on_event("startup")
 async def on_startup():
@@ -34,18 +41,23 @@ async def on_startup():
     except Exception as e:
         logger.error("Failed to initialize database during startup", exc_info=e)
 
+
 # Protected test endpoint
 @app.get("/api/protected")
-async def protected_endpoint(request: Request, payload: dict = Depends(verify_jwt_token)):
+async def protected_endpoint(
+    request: Request, payload: dict = Depends(verify_jwt_token)
+):
     """Return the JWT payload for a verified request.
     This endpoint is used to confirm that Supabase JWT verification works.
     """
     return {"message": "Access granted", "user": payload}
 
+
 # Health check
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
 
 # Ingestion / Extraction Endpoint
 @app.post("/api/v1/documents/extract")
@@ -53,21 +65,17 @@ async def extract_document_endpoint(
     request: Request,
     file: Optional[UploadFile] = File(None),
     pasted_text: Optional[str] = Form(None),
-    payload: dict = Depends(verify_jwt_token)
+    payload: dict = Depends(verify_jwt_token),
 ):
     try:
         # Validate inputs
         if file is None and pasted_text is None:
             raise IngestionError(
-                "VALIDATION_ERROR",
-                "Either file or pasted_text must be provided.",
-                400
+                "VALIDATION_ERROR", "Either file or pasted_text must be provided.", 400
             )
         if file is not None and pasted_text is not None:
             raise IngestionError(
-                "VALIDATION_ERROR",
-                "Provide either file or pasted_text, not both.",
-                400
+                "VALIDATION_ERROR", "Provide either file or pasted_text, not both.", 400
             )
 
         user_id = payload.get("sub") or payload.get("userId")
@@ -82,13 +90,11 @@ async def extract_document_endpoint(
 
         # Clean and normalize text
         cleaned = clean_and_normalize_text(extraction["raw_text"])
-        
+
         # Verify text is not empty or too short after cleaning
         if not cleaned["cleaned_text"] or cleaned["word_count"] == 0:
             raise IngestionError(
-                "NO_EXTRACTABLE_TEXT",
-                "The document contains no extractable text.",
-                422
+                "NO_EXTRACTABLE_TEXT", "The document contains no extractable text.", 422
             )
 
         # Generate SHA-256 hash
@@ -96,7 +102,7 @@ async def extract_document_endpoint(
 
         # Check database for existing hash
         existing_scan = await get_scan_by_hash(doc_hash)
-        
+
         # Build text preview
         preview = cleaned["cleaned_text"][:240].replace("\n", " ").strip()
 
@@ -125,9 +131,9 @@ async def extract_document_endpoint(
                             "word_count": existing_scan.word_count,
                             "paragraph_count": cleaned["paragraph_count"],
                             "document_hash": doc_hash,
-                            "text_preview": preview
+                            "text_preview": preview,
                         },
-                        "warnings": extraction["warnings"]
+                        "warnings": extraction["warnings"],
                     }
             # If cleaned text differs, treat as a new document (ignore cache)
 
@@ -141,7 +147,7 @@ async def extract_document_endpoint(
             cleaned_text=cleaned["cleaned_text"],
             character_count=cleaned["character_count"],
             word_count=cleaned["word_count"],
-            status="pending"
+            status="pending",
         )
 
         return {
@@ -156,21 +162,15 @@ async def extract_document_endpoint(
                 "word_count": new_scan.word_count,
                 "paragraph_count": cleaned["paragraph_count"],
                 "document_hash": doc_hash,
-                "text_preview": preview
+                "text_preview": preview,
             },
-            "warnings": extraction["warnings"]
+            "warnings": extraction["warnings"],
         }
 
     except IngestionError as ie:
         return JSONResponse(
             status_code=ie.status_code,
-            content={
-                "error": {
-                    "code": ie.code,
-                    "message": ie.message,
-                    "details": {}
-                }
-            }
+            content={"error": {"code": ie.code, "message": ie.message, "details": {}}},
         )
     except Exception as e:
         logger.error("Unhandled exception during document extraction", exc_info=e)
@@ -180,9 +180,9 @@ async def extract_document_endpoint(
                 "error": {
                     "code": "INTERNAL_SERVER_ERROR",
                     "message": "An unexpected error occurred during document extraction.",
-                    "details": {}
+                    "details": {},
                 }
-            }
+            },
         )
 
 
@@ -222,7 +222,7 @@ async def search_sources_endpoint(
         if settings.REDIS_URL and "localhost" not in settings.REDIS_URL:
             redis_url = settings.REDIS_URL
     except Exception:
-        pass
+        logger.warning("Failed to initialize Redis URL, falling back to default cache.")
 
     cache = SearchCache(redis_url=redis_url)
     cache.reset_stats()
@@ -232,6 +232,7 @@ async def search_sources_endpoint(
         doc_cache_key = cache.make_key("doc_sources", scan.document_hash)
         cached_result = await cache.get(doc_cache_key)
         if cached_result:
+            cached_result["scan_id"] = scan_id
             cached_result["cache"] = cache.stats
             return cached_result
 
@@ -268,20 +269,24 @@ async def search_sources_endpoint(
                     citation_count=src.get("citation_count"),
                 )
             except Exception as exc:
-                logger.warning("Failed to persist source %s: %s", src.get("provider_id"), exc)
+                logger.warning(
+                    "Failed to persist source %s: %s", src.get("provider_id"), exc
+                )
 
         # 8. Build safe response sources (no filesystem paths, no secrets)
         response_sources = []
         for src in unique_sources:
-            response_sources.append({
-                "provider": src.get("provider"),
-                "provider_id": src.get("provider_id"),
-                "title": src.get("title"),
-                "authors": src.get("authors", []),
-                "publication_year": src.get("publication_year"),
-                "venue": src.get("venue"),
-                "candidate_score": src.get("candidate_score", 0.0),
-            })
+            response_sources.append(
+                {
+                    "provider": src.get("provider"),
+                    "provider_id": src.get("provider_id"),
+                    "title": src.get("title"),
+                    "authors": src.get("authors", []),
+                    "publication_year": src.get("publication_year"),
+                    "venue": src.get("venue"),
+                    "candidate_score": src.get("candidate_score", 0.0),
+                }
+            )
 
         result = {
             "scan_id": scan_id,

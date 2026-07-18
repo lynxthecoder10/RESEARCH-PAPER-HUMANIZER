@@ -9,8 +9,6 @@ import os
 import tempfile
 
 import pytest
-import pytest_asyncio
-from unittest.mock import patch
 
 from app.services.keywords import extract_keywords, generate_search_queries
 from app.services.source_deduplication import (
@@ -21,10 +19,10 @@ from app.services.source_deduplication import (
 from app.services.offline_source_provider import OfflineSourceProvider
 from app.services.search_cache import SearchCache
 
-
 # ======================================================================
 # 1. Keyword Extraction
 # ======================================================================
+
 
 class TestExtractKeywords:
     """Tests for extract_keywords()."""
@@ -76,6 +74,7 @@ class TestExtractKeywords:
 # 2. Query Generation
 # ======================================================================
 
+
 class TestGenerateSearchQueries:
     """Tests for generate_search_queries()."""
 
@@ -103,6 +102,7 @@ class TestGenerateSearchQueries:
 # ======================================================================
 # 3. Corpus Loading
 # ======================================================================
+
 
 class TestCorpusLoading:
     """Tests for OfflineSourceProvider corpus loading."""
@@ -151,7 +151,11 @@ class TestCorpusLoading:
     def test_malformed_record_skipped(self):
         """Records missing required fields are silently skipped."""
         corpus = [
-            {"title": "Valid Record", "provider_id": "demo-v1", "provider": "demo_corpus"},
+            {
+                "title": "Valid Record",
+                "provider_id": "demo-v1",
+                "provider": "demo_corpus",
+            },
             {"abstract": "No title or id"},  # malformed
             "not a dict",  # malformed
             {"title": "", "provider_id": "demo-v2"},  # empty title
@@ -175,13 +179,18 @@ class TestCorpusLoading:
         provider = OfflineSourceProvider()
         records = provider._load_corpus()
         for r in records:
-            assert r["provider"] == "demo_corpus", f"Provider mismatch: {r.get('provider_id')}"
-            assert r["provider_id"].startswith("demo-"), f"Bad provider_id: {r['provider_id']}"
+            assert (
+                r["provider"] == "demo_corpus"
+            ), f"Provider mismatch: {r.get('provider_id')}"
+            assert r["provider_id"].startswith(
+                "demo-"
+            ), f"Bad provider_id: {r['provider_id']}"
 
 
 # ======================================================================
 # 4. Source Ranking
 # ======================================================================
+
 
 class TestSourceRanking:
     """Tests for TF-IDF-based source ranking."""
@@ -214,6 +223,7 @@ class TestSourceRanking:
 # ======================================================================
 # 5. Title Normalization and Deduplication
 # ======================================================================
+
 
 class TestDeduplication:
     """Tests for source deduplication."""
@@ -259,6 +269,7 @@ class TestDeduplication:
 # 6. Search Cache
 # ======================================================================
 
+
 class TestSearchCache:
     """Tests for SearchCache wrapper."""
 
@@ -302,11 +313,13 @@ class TestSearchCache:
 # 7. API Endpoint Integration Tests
 # ======================================================================
 
+
 @pytest.fixture
 def test_client():
     """Create a TestClient for the FastAPI app."""
     from fastapi.testclient import TestClient
     from app.main import app
+
     return TestClient(app)
 
 
@@ -331,11 +344,13 @@ class TestSearchEndpoint:
         # First ingest a document
         ingest_resp = test_client.post(
             "/api/v1/documents/extract",
-            data={"pasted_text": (
-                "Deep learning techniques for natural language processing "
-                "using neural networks transformers and attention mechanisms "
-                "in modern artificial intelligence research applications."
-            )},
+            data={
+                "pasted_text": (
+                    "Deep learning techniques for natural language processing "
+                    "using neural networks transformers and attention mechanisms "
+                    "in modern artificial intelligence research applications."
+                )
+            },
             headers=mock_auth_header,
         )
         assert ingest_resp.status_code == 200
@@ -377,12 +392,17 @@ class TestSearchEndpoint:
         data = search_resp.json()
         assert len(data["limitations"]) >= 2
         assert any("synthetic" in lim.lower() for lim in data["limitations"])
-        assert any("disabled" in lim.lower() or "offline" in lim.lower() for lim in data["limitations"])
+        assert any(
+            "disabled" in lim.lower() or "offline" in lim.lower()
+            for lim in data["limitations"]
+        )
 
     def test_no_secrets_in_response(self, test_client, mock_auth_header):
         ingest_resp = test_client.post(
             "/api/v1/documents/extract",
-            data={"pasted_text": "Machine learning for climate modeling and prediction accuracy"},
+            data={
+                "pasted_text": "Machine learning for climate modeling and prediction accuracy"
+            },
             headers=mock_auth_header,
         )
         scan_id = ingest_resp.json()["scan_id"]
