@@ -3,6 +3,7 @@ import datetime
 from typing import List, Optional, Dict, Any
 from sqlalchemy import Column, String, Integer, DateTime, Text, Index, ForeignKey
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+import json
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.future import select
 from app.config import settings
@@ -25,8 +26,8 @@ class Scan(Base):
     page_count = Column(Integer, nullable=False, default=0)
     paragraph_count = Column(Integer, nullable=False, default=0)
     status = Column(String, nullable=False, default="pending")
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     history = relationship("ScanHistory", back_populates="scan", cascade="all, delete-orphan", lazy="selectin")
 
@@ -37,9 +38,124 @@ class ScanHistory(Base):
     scan_id = Column(String, ForeignKey("scans.id", ondelete="CASCADE"), nullable=False)
     event_type = Column(String, nullable=False)
     event_message = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     scan = relationship("Scan", back_populates="history")
+
+# New model: ScanSource
+class ScanSource(Base):
+    __tablename__ = "scan_sources"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    scan_id = Column(String, ForeignKey("scans.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider = Column(String, nullable=False)
+    provider_id = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    abstract = Column(Text, nullable=True)
+    authors_json = Column(Text, nullable=True)  # JSON-encoded list
+    doi = Column(String, nullable=True, index=True)
+    publication_year = Column(Integer, nullable=True)
+    venue = Column(String, nullable=True)
+    source_url = Column(String, nullable=True)
+    open_access_url = Column(String, nullable=True)
+    citation_count = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    scan = relationship("Scan", backref="sources")
+
+# New model: ApiCache
+class ApiCache(Base):
+    __tablename__ = "api_cache"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    cache_key = Column(String, nullable=False, unique=True, index=True)
+    provider = Column(String, nullable=False)
+    query = Column(String, nullable=False)
+    response_json = Column(Text, nullable=False)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+# Helper functions for ScanSource
+async def create_scan_source(
+    scan_id: str,
+    provider: str,
+    provider_id: str,
+    title: str,
+    abstract: Optional[str] = None,
+    authors: Optional[list] = None,
+    doi: Optional[str] = None,
+    publication_year: Optional[int] = None,
+    venue: Optional[str] = None,
+    source_url: Optional[str] = None,
+    open_access_url: Optional[str] = None,
+    citation_count: Optional[int] = None,
+) -> ScanSource:
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            source = ScanSource(
+                scan_id=scan_id,
+                provider=provider,
+                provider_id=provider_id,
+                title=title,
+                abstract=abstract,
+                authors_json=json.dumps(authors) if authors else None,
+                doi=doi,
+                publication_year=publication_year,
+                venue=venue,
+                source_url=source_url,
+                open_access_url=open_access_url,
+                citation_count=citation_count,
+            )
+            session.add(source)
+        await session.refresh(source)
+        return source
+
+# Helper to get sources by scan_id
+async def get_sources_by_scan_id(scan_id: str) -> List[ScanSource]:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(ScanSource).where(ScanSource.scan_id == scan_id))
+        return list(result.scalars().all())
+
+# Helper functions for ApiCache
+async def upsert_api_cache(
+    cache_key: str,
+    provider: str,
+    query: str,
+    response_json: str,
+    ttl_seconds: int = 86400,
+) -> ApiCache:
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            now = datetime.datetime.now(datetime.timezone.utc)
+            expires = now + datetime.timedelta(seconds=ttl_seconds)
+            result = await session.execute(select(ApiCache).where(ApiCache.cache_key == cache_key))
+            cache = result.scalars().first()
+            if cache:
+                cache.provider = provider
+                cache.query = query
+                cache.response_json = response_json
+                cache.expires_at = expires
+                cache.updated_at = now
+            else:
+                cache = ApiCache(
+                    cache_key=cache_key,
+                    provider=provider,
+                    query=query,
+                    response_json=response_json,
+                    expires_at=expires,
+                )
+                session.add(cache)
+        await session.refresh(cache)
+        return cache
+
+async def get_api_cache(cache_key: str) -> Optional[ApiCache]:
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(ApiCache).where(ApiCache.cache_key == cache_key))
+        cache = result.scalars().first()
+        if cache and cache.expires_at > datetime.datetime.now(datetime.timezone.utc):
+            return cache
+        return None
 
 # Process DATABASE_URL to ensure it is async-compatible
 db_url = settings.DATABASE_URL
@@ -55,6 +171,7 @@ AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_co
 
 async def initialize_database() -> None:
     async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
 async def create_scan(
@@ -107,7 +224,11 @@ async def get_scan_by_id(scan_id: str) -> Optional[Scan]:
 
 async def get_scan_by_hash(document_hash: str) -> Optional[Scan]:
     async with AsyncSessionLocal() as session:
-        result = await session.execute(select(Scan).where(Scan.document_hash == document_hash))
+        result = await session.execute(
+            select(Scan)
+            .where(Scan.document_hash == document_hash)
+            .order_by(Scan.created_at.desc())
+        )
         return result.scalars().first()
 
 async def update_scan_status(scan_id: str, status: str, event_message: Optional[str] = None) -> Optional[Scan]:
@@ -118,7 +239,7 @@ async def update_scan_status(scan_id: str, status: str, event_message: Optional[
             if not scan:
                 return None
             scan.status = status
-            scan.updated_at = datetime.datetime.utcnow()
+            scan.updated_at = datetime.datetime.now(datetime.timezone.utc)
             if event_message:
                 history = ScanHistory(
                     id=str(uuid.uuid4()),

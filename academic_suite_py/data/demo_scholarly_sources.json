@@ -1,0 +1,222 @@
+[
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-001",
+    "title": "Deep Learning for Natural Language Processing",
+    "abstract": "An overview of deep learning techniques applied to NLP tasks, covering embeddings, transformers, and sequence models.",
+    "authors": ["A. Smith", "B. Johnson"],
+    "publication_year": 2020,
+    "venue": "Synthetic AI Research Review",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-002",
+    "title": "Quantum Computing: Principles and Applications",
+    "abstract": "Survey of quantum algorithms, hardware challenges, and potential applications in cryptography and optimization.",
+    "authors": ["C. Lee"],
+    "publication_year": 2019,
+    "venue": "Synthetic Computing Surveys",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-003",
+    "title": "Renewable Energy Systems and Grid Integration",
+    "abstract": "Analysis of solar and wind integration into modern electrical grids, focusing on stability and storage solutions.",
+    "authors": ["D. Kim", "E. Martinez"],
+    "publication_year": 2021,
+    "venue": "Synthetic Energy Review",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-004",
+    "title": "Advances in CRISPR Gene Editing",
+    "abstract": "Review of recent CRISPR-Cas9 developments, delivery methods, and ethical considerations.",
+    "authors": ["F. Zhang"],
+    "publication_year": 2022,
+    "venue": "Synthetic Genomics Review",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-005",
+    "title": "Machine Learning for Climate Modeling",
+    "abstract": "Application of ensemble learning to improve climate prediction accuracy and uncertainty quantification.",
+    "authors": ["G. Liu", "H. Patel"],
+    "publication_year": 2020,
+    "venue": "Synthetic Climate Science",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-006",
+    "title": "Blockchain Technology in Supply Chain Management",
+    "abstract": "Explores blockchain's role in enhancing transparency, traceability, and security in supply chains.",
+    "authors": ["I. Torres"],
+    "publication_year": 2018,
+    "venue": "Synthetic Business Tech Review",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-007",
+    "title": "Virtual Reality in Education",
+    "abstract": "Evaluates the impact of VR environments on learner engagement and knowledge retention.",
+    "authors": ["J. Doe"],
+    "publication_year": 2021,
+    "venue": "Synthetic Ed Tech Review",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-008",
+    "title": "Nanomaterials for Drug Delivery",
+    "abstract": "Discussion of nanoparticles as carriers for targeted drug delivery and controlled release.",
+    "authors": ["K. Wu"],
+    "publication_year": 2019,
+    "venue": "Synthetic Pharmaceutical Review",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-009",
+    "title": "Autonomous Vehicles: Safety and Ethics",
+    "abstract": "Analysis of safety challenges and ethical frameworks for self-driving car deployment.",
+    "authors": ["L. Chen"],
+    "publication_year": 2022,
+    "venue": "Synthetic Transportation Review",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-010",
+    "title": "Statistical Methods for Big Data",
+    "abstract": "Overview of scalable statistical techniques for massive datasets, including Bayesian methods.",
+    "authors": ["M. Patel"],
+    "publication_year": 2020,
+    "venue": "Synthetic Data Science Review",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-011",
+    "title": "Cybersecurity Threats in IoT Devices",
+    "abstract": "Identifies common vulnerabilities in IoT ecosystems and proposes mitigation strategies.",
+    "authors": ["N. Gupta"],
+    "publication_year": 2021,
+    "venue": "Synthetic IoT Security Review",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-012",
+    "title": "Social Media Analytics for Public Opinion",
+    "abstract": "Methods for extracting and analyzing sentiment trends from social media platforms.",
+    "authors": ["O. Rivera"],
+    "publication_year": 2019,
+    "venue": "Synthetic Media Studies Review",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-013",
+    "title": "Edge Computing in Real-Time Data Processing",
+    "abstract": "Evaluates the advantages of edge computing for latency-sensitive applications.",
+    "authors": ["P. Sanchez"],
+    "publication_year": 2020,
+    "venue": "Synthetic Computing Edge Review",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-014",
+    "title": "Ethical AI: Bias Detection and Mitigation",
+    "abstract": "Framework for identifying bias in machine learning models and strategies to reduce it.",
+    "authors": ["Q. Lee"],
+    "publication_year": 2021,
+    "venue": "Synthetic AI Ethics Review",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-015",
+    "title": "3D Printing Materials and Applications",
+    "abstract": "Survey of emerging materials for additive manufacturing and their industrial uses.",
+    "authors": ["R. Kim"],
+    "publication_year": 2018,
+    "venue": "Synthetic Manufacturing Review",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-016",
+    "title": "Bioinformatics Algorithms for Genome Assembly",
+    "abstract": "Discussion of de Bruijn graph methods and their performance on large datasets.",
+    "authors": ["S. Patel"],
+    "publication_year": 2022,
+    "venue": "Synthetic Bioinformatics Review",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-017",
+    "title": "Advancements in Solar Cell Efficiency",
+    "abstract": "Review of perovskite and tandem solar cells achieving greater than thirty percent efficiency.",
+    "authors": ["T. Alvarez"],
+    "publication_year": 2020,
+    "venue": "Synthetic Solar Energy Review",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-018",
+    "title": "Human-Computer Interaction Trends",
+    "abstract": "Explores recent HCI research on gesture, voice, and haptic interfaces.",
+    "authors": ["V. Huang"],
+    "publication_year": 2021,
+    "venue": "Synthetic HCI Review",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-019",
+    "title": "Data Privacy Regulations Worldwide",
+    "abstract": "Comparative analysis of GDPR, CCPA, and emerging data protection laws.",
+    "authors": ["W. Zhou"],
+    "publication_year": 2019,
+    "venue": "Synthetic Law and Tech Review",
+    "doi": null,
+    "url": null
+  },
+  {
+    "provider": "demo_corpus",
+    "provider_id": "demo-020",
+    "title": "Deep Reinforcement Learning for Robotics",
+    "abstract": "Application of DRL algorithms to robotic manipulation and navigation tasks.",
+    "authors": ["X. Romero"],
+    "publication_year": 2022,
+    "venue": "Synthetic Robotics Review",
+    "doi": null,
+    "url": null
+  }
+]

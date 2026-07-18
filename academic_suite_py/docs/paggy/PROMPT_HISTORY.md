@@ -9,6 +9,21 @@
 | PRM-005 | 2026-07-16 | Sprint 1 Foundation | Stage 1 | Completed | Basic app & JWT auth |
 | PRM-006 | 2026-07-16 | Engineering Log & Git tracking | Stage 1 | Completed | Initial log & Git commit |
 | PRM-007 | 2026-07-17 | Five-Hour MVP Completion | Stage 1 | In Progress | Docker 3.12 configured |
+| PRM-008 | 2026-07-17 | Create Three Project Tracking Documents | Stage 1 | Completed | Recorded shutdown tasks and docs |
+| PRM-009 | 2026-07-18 | End-of-Day Checkpoint and Safe Pause | Hour 2 | Completed | Recorded shutdown tasks and docs |
+| PRM-010 | 2026-07-19 | Complete Hour 2 Verification | Hour 2 | Completed | Offline scholarly retrieval implemented and verified |
+
+
+
+| Prompt ID | Date | Title | Stage | Status | Result |
+|---|---|---|---|---|---|
+| PRM-001 | 2026-07-16 | Python Backend Migration | Stage 0 | Completed | Backend scaffolding |
+| PRM-002 | 2026-07-16 | 80% Python & 20% Frontend | Stage 0 | Completed | Architecture plan |
+| PRM-003 | 2026-07-16 | Standalone Feature Architecture | Stage 0 | Completed | API design |
+| PRM-004 | 2026-07-16 | Cache-first Plagiarism Workflow | Stage 0 | Completed | Caching strategy |
+| PRM-005 | 2026-07-16 | Sprint 1 Foundation | Stage 1 | Completed | Basic app & JWT auth |
+| PRM-006 | 2026-07-16 | Engineering Log & Git tracking | Stage 1 | Completed | Initial log & Git commit |
+| PRM-007 | 2026-07-17 | Five-Hour MVP Completion | Stage 1 | In Progress | Docker 3.12 configured |
 | PRM-008 | 2026-07-17 | Create Three Project Tracking Documents | Stage 1 | Submitted | Tracking files created |
 
 ## Prompt ID: PRM-001
@@ -107,4 +122,16 @@
 - **Expected result**: Three files created.
 - **Actual result**: Files written and staged.
 - **Files affected**: `docs/paggy/PROMPT_HISTORY.md`, `docs/paggy/PROJECT_PROGRESS.md`, `docs/paggy/PRESENTATION_MASTER.md`.
+- **Status**: Completed
+
+## Prompt ID: PRM-010
+- **Date and time**: 2026-07-19 00:17
+- **Development stage**: Hour 2 - Scholarly Search
+- **Tool or AI**: Antigravity
+- **Prompt title**: Complete Hour 2 Verification and Finalize Offline Scholarly Retrieval
+- **Objective**: Verify tests, check code quality, confirm architecture decisions, and commit Hour 2 implementation.
+- **Full prompt**: *Reconstructed from repository and conversation evidence.* Run tests for offline scholarly retrieval, perform static analysis checks, ensure demo corpus disclosures are present, document endpoints, and prepare for Hour 3.
+- **Expected result**: Exit code 0 for pytest, completion of services, updated documentation, and a clean Git commit.
+- **Actual result**: 54 tests passed. Implemented `POST /api/v1/sources/search`, keyword extraction, TF-IDF ranking, source deduplication, and cache logic. Documentation updated.
+- **Files affected**: `app/config.py`, `app/main.py`, `app/services/*`, `data/*`, `tests/*`, `docs/paggy/*`, `.env.example`, `pyproject.toml`.
 - **Status**: Completed

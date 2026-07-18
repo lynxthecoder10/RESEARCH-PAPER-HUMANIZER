@@ -63,6 +63,7 @@ def validate_input_file(filename: Optional[str], content: bytes) -> str:
     return detected_mime
 
 def extract_pdf(content: bytes, filename: str) -> Dict[str, Any]:
+    warnings: List[str] = []
     try:
         doc = fitz.open(stream=content, filetype="pdf")
     except Exception as e:
@@ -82,8 +83,8 @@ def extract_pdf(content: bytes, filename: str) -> Dict[str, Any]:
     raw_text = "\n--- PAGE BOUNDARY ---\n".join(pages_text)
     clean_check = raw_text.strip().replace(" ", "").replace("\n", "")
     
-    warnings = []
-    if page_count > 0 and len(clean_check) < 100:
+    # Detect scanned PDF: if no extractable text (raw_text stripped is empty)
+    if page_count > 0 and not raw_text.strip():
         raw_text = "No extractable text was found. This document may be scanned. OCR is not enabled in the current PAGGY MVP."
         warnings.append("scanned_pdf_detected")
 

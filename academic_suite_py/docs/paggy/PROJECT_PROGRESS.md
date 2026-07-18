@@ -16,11 +16,11 @@
 | Stage | Objective | Status | Progress | Started | Completed | Blockers |
 |---|---|---|---:|---|---|---|
 | Stage 0 | Requirements and Planning | [x] Completed | 100% | 2026-07-16 | 2026-07-16 | None |
-| Stage 1 | Backend Foundation | [~] In progress | 40% | 2026-07-16 | | Python 3.12 Host |
-| Stage 2 | Document Ingestion | [ ] Not started | 0% | | | |
-| Stage 3 | Keyword Extraction and Cache | [ ] Not started | 0% | | | |
-| Stage 4 | Scholarly API Search | [ ] Not started | 0% | | | |
-| Stage 5 | Similarity Analysis | [ ] Not started | 0% | | | |
+| Stage 1 | Backend Foundation | [x] Completed | 100% | 2026-07-16 | 2026-07-17 | None |
+| Stage 2 | Document Ingestion | [x] Completed | 100% | 2026-07-17 | 2026-07-17 | None |
+| Stage 3 | Keyword Extraction and Cache | [x] Completed | 100% | 2026-07-18 | 2026-07-19 | None |
+| Stage 4 | Scholarly API Search | [x] Completed | 100% | 2026-07-18 | 2026-07-19 | None |
+| Stage 5 | Similarity Analysis | [~] In progress | 10% | 2026-07-19 | | |
 | Stage 6 | AI Content Risk Analysis | [ ] Not started | 0% | | | |
 | Stage 7 | Combined Report Generation | [ ] Not started | 0% | | | |
 | Stage 8 | Frontend Integration | [ ] Not started | 0% | | | |
@@ -67,13 +67,16 @@
 
 ### Hour 2 — Scholarly Search
 - **Planned tasks**: Keyword extraction, concurrent scholarly search (Semantic Scholar, OpenAlex, Crossref), and deduplication.
-- **Completed tasks**: None.
-- **Next-hour priority**: Connect APIs with httpx.
+- **Completed tasks**: Offline scholarly retrieval, synthetic corpus setup (20 records), deterministic keyword extraction, query generation, TF-IDF candidate ranking, deduplication, search cache, and search endpoint.
+- **Files changed**: `app/config.py`, `app/main.py`, `app/services/keywords.py`, `app/services/source_provider.py`, `app/services/offline_source_provider.py`, `app/services/source_deduplication.py`, `app/services/search_cache.py`, `data/demo_scholarly_sources.json`, `data/README.md`, `tests/test_offline_search.py`, `.env.example`, `pyproject.toml`, `requirements.txt`.
+- **Test totals**: 54 passed, 0 failed, 0 skipped, 5 warnings.
+- **Quality checks**: Ruff exited with 1 (formatting suggestions), Black exited with 1 (formatting suggestions), Bandit exited with 0 (1 low severity issue).
+- **Next-hour priority**: Implement final TF-IDF similarity, paragraph-level matching, similarity aggregation, originality score, AI Content Risk Estimate, and combined report generation.
 
 ### Hour 3 — Similarity and AI Risk
 - **Planned tasks**: TF-IDF, cosine similarity, paragraph matching, and statistical AI risk evaluation.
-- **Completed tasks**: None.
-- **Next-hour priority**: Perform scikit-learn comparisons.
+- **Completed tasks**: Initial TF-IDF usage for candidate retrieval implemented in Hour 2.
+- **Next-hour priority**: Complete similarity checking and AI risk scoring.
 
 ### Hour 4 — API and Frontend Integration
 - **Planned tasks**: Combined scan endpoint and Next.js routes proxying.
@@ -96,17 +99,17 @@
 | TXT upload | [ ] | [x] | [ ] | [ ] | Staged |
 | pasted text | [ ] | [x] | [ ] | [ ] | Staged |
 | file validation | [ ] | [x] | [ ] | [ ] | Staged |
-| text extraction | [ ] | [ ] | [ ] | [ ] | Planned |
-| text cleaning | [ ] | [ ] | [ ] | [ ] | Planned |
-| SHA-256 hashing | [ ] | [x] | [ ] | [ ] | Planned |
-| document cache | [ ] | [ ] | [ ] | [ ] | Planned |
-| keyword extraction | [ ] | [ ] | [ ] | [ ] | Planned |
+| text extraction | [x] | [ ] | [x] | [ ] | Staged |
+| text cleaning | [x] | [ ] | [x] | [ ] | Staged |
+| SHA-256 hashing | [x] | [x] | [x] | [ ] | Staged |
+| document cache | [x] | [ ] | [x] | [ ] | Staged |
+| keyword extraction | [x] | [ ] | [x] | [ ] | Staged |
 | Semantic Scholar | [ ] | [ ] | [ ] | [ ] | Planned |
 | OpenAlex | [ ] | [ ] | [ ] | [ ] | Planned |
 | Crossref | [ ] | [ ] | [ ] | [ ] | Planned |
-| DOI deduplication | [ ] | [ ] | [ ] | [ ] | Planned |
-| TF-IDF | [ ] | [ ] | [ ] | [ ] | Planned |
-| cosine similarity | [ ] | [ ] | [ ] | [ ] | Planned |
+| DOI deduplication | [x] | [ ] | [x] | [ ] | Staged |
+| TF-IDF | [x] | [ ] | [x] | [ ] | Staged (Candidate Retrieval) |
+| cosine similarity | [x] | [ ] | [x] | [ ] | Staged (Candidate Retrieval) |
 | paragraph matching | [ ] | [ ] | [ ] | [ ] | Planned |
 | originality score | [ ] | [ ] | [ ] | [ ] | Planned |
 | AI-content risk | [ ] | [ ] | [ ] | [ ] | Planned |

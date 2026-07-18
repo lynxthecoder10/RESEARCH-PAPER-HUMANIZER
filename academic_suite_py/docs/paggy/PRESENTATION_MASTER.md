@@ -78,10 +78,10 @@ sequenceDiagram
         Backend->>User: Return cached Scan Report
     else Cache Miss
         Backend->>Backend: Extract keywords (8-15 terms)
-        Backend->>Search: Concurrent API queries (10s timeout)
+        Backend->>Search: Offline Retrieval (or Concurrent API queries)
         Search->>Backend: Deduplicated Academic Papers
-        Backend->>Backend: Run TF-IDF / Cosine Similarity
-        Backend->>Backend: Run Statistical AI Risk check
+        Backend->>Backend: Run TF-IDF / Cosine Similarity (candidate retrieval)
+        Backend->>Backend: Run Paragraph Matching & AI Risk check
         Backend->>Backend: Generate Combined Integrity Report
         Backend->>Backend: Save Scan History
         Backend->>User: Return Scan Report
@@ -133,11 +133,13 @@ sequenceDiagram
 ## 14. Accuracy and Academic Limitations
 > [!IMPORTANT]
 > **Similarity Search**: Similarity is calculated against scholarly sources retrieved from supported academic APIs (Crossref, Semantic Scholar, OpenAlex) and does not represent an exhaustive comparison against every publication or webpage.
-> **AI Content Risk**: The AI Content Risk Estimate is a statistical estimate based on structural and linguistic features and must not be treated as definitive proof of AI authorship.
+> **Candidate Retrieval vs Final Scoring**: TF-IDF cosine similarity is used primarily to fetch and rank the most relevant source candidates. Final plagiarism similarity percentages require granular, paragraph-level string comparisons.
+> **Synthetic Corpus**: The offline search mode uses a bundled synthetic demonstration corpus comprising 20 records. It demonstrates PAGGY's retrieval and comparison workflow but does not represent live scholarly-database coverage.
 
 ## 15. Testing and Verification
-- *Status*: Unit tests planned to run in isolated python:3.12-slim container.
-- *Test targets*: Extraction (PDF/DOCX/TXT), Hashing, Cache, API Deduplication, Similarity Engine, AI Risk scoring.
+- *Status*: Unit tests executed via pytest.
+- *Test targets*: Extraction, Hashing, Cache, Keyword Extraction, TF-IDF Candidate Ranking, API Deduplication, Endpoint behavior.
+- *Latest Results*: 54 passed, 0 failed, 5 warnings (exit code 0). Quality checks run with Ruff, Black, and Bandit.
 
 ## 16. Challenges and Solutions
 

@@ -1,5 +1,9 @@
 from pydantic_settings import BaseSettings
 import os
+from pathlib import Path
+
+# Resolve project root directory (parent of app/)
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 class Settings(BaseSettings):
     # Core settings
@@ -14,5 +18,24 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+
+    # Cache TTL settings (in seconds)
+    # Document extraction cache TTL (default 7 days)
+    DOCUMENT_CACHE_TTL_SECONDS: int = int(os.getenv("DOCUMENT_CACHE_TTL_SECONDS", str(7 * 24 * 60 * 60)))
+    # API query cache TTL (default 24 hours)
+    API_CACHE_TTL_SECONDS: int = int(os.getenv("API_CACHE_TTL_SECONDS", str(24 * 60 * 60)))
+    # Paper metadata cache TTL (default 7 days)
+    PAPER_METADATA_CACHE_TTL_SECONDS: int = int(os.getenv("PAPER_METADATA_CACHE_TTL_SECONDS", str(7 * 24 * 60 * 60)))
+    # Search cache TTL (default 24 hours)
+    SEARCH_CACHE_TTL_SECONDS: int = int(os.getenv("SEARCH_CACHE_TTL_SECONDS", str(24 * 60 * 60)))
+    # Search mode (offline or online)
+    SCHOLARLY_SEARCH_MODE: str = os.getenv("SCHOLARLY_SEARCH_MODE", "offline")
+    # Offline source corpus path (resolved relative to project root)
+    OFFLINE_SOURCE_PATH: str = os.getenv(
+        "OFFLINE_SOURCE_PATH",
+        str(_PROJECT_ROOT / "data" / "demo_scholarly_sources.json")
+    )
+
+
 
 settings = Settings()

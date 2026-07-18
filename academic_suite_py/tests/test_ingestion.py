@@ -3,6 +3,7 @@ import io
 import fitz
 import docx
 import asyncio
+asyncio.set_event_loop(asyncio.new_event_loop())
 from fastapi.testclient import TestClient
 from app.main import app
 from app.services.extraction import (
