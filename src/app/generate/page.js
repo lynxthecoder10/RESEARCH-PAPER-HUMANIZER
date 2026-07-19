@@ -53,7 +53,7 @@ export default function GeneratePage() {
       if (data.status === 'success') {
         setResult(data.result);
         setIsFallback(data.fallback);
-        setStatus(data.fallback ? 'Fallback structure applied.' : 'Formatted successfully.');
+        setStatus(data.fallback ? 'Fallback structure applied and saved to history.' : data.paper ? 'Formatted successfully and saved to history.' : 'Formatted successfully.');
       } else {
         setStatus(data.message || 'An error occurred. Please retry.');
       }
